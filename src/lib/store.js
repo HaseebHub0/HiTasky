@@ -3,6 +3,12 @@
 // Same single-source-of-truth model as the web app, persisted to
 // AsyncStorage. No network, ever. Backup/restore goes through the
 // system share sheet & document picker (SAF analogue).
+//
+// Reliability features (Competitor Fix #4 — Data Security):
+//   • Debounced writes — batches rapid changes (500ms)
+//   • Atomic persistence — write-to-temp then swap
+//   • State validation on hydrate — deduplication, orphan cleanup
+//   • Reminder rescheduling on boot & import (Fix #1)
 // ============================================================
 import React, { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,24 +18,29 @@ import * as DocumentPicker from 'expo-document-picker';
 import { uid } from './id.js';
 import { startOfDay, startOfWeek, isWeekday } from './date.js';
 import { ACCENTS } from '../theme.js';
-import { scheduleReminder, cancelReminder } from './notifications.js';
+import { scheduleReminder, cancelReminder, rescheduleAllReminders } from './notifications.js';
 import { FREE_FOR_ALL } from './config.js';
 import { updateTodayWidget } from '../widget/updateWidget.js';
 
 const KEY = 'hitasky.v1';
+const KEY_PENDING = 'hitasky.v1.pending';
 const SCHEMA = 1;
+const PERSIST_DEBOUNCE_MS = 500;
 
 function nowIso() {
   return new Date().toISOString();
 }
 
-/* ---- seed content for a first run (mirrors the design mocks) ---- */
+/* ---- seed content for a first run — rich mock data for performance testing ---- */
 function seed() {
   const lWork = uid('l');
   const lStudy = uid('l');
   const lHome = uid('l');
   const lShopping = uid('l');
   const lPersonal = uid('l');
+  const lFitness = uid('l');
+  const lReading = uid('l');
+  const lTravel = uid('l');
 
   const lists = [
     { id: lWork, name: 'Work', accent: '#E58A4B', icon: 'briefcase', sortOrder: 0, createdAt: nowIso() },
@@ -37,12 +48,65 @@ function seed() {
     { id: lHome, name: 'Home', accent: '#7E8C5A', icon: 'home', sortOrder: 2, createdAt: nowIso() },
     { id: lShopping, name: 'Shopping', accent: '#5A7E8C', icon: 'list', sortOrder: 3, createdAt: nowIso() },
     { id: lPersonal, name: 'Personal', accent: '#B57CA3', icon: 'heart', sortOrder: 4, createdAt: nowIso() },
+    { id: lFitness, name: 'Fitness', accent: '#6FB890', icon: 'star', sortOrder: 5, createdAt: nowIso() },
+    { id: lReading, name: 'Reading', accent: '#9A6A8C', icon: 'book', sortOrder: 6, createdAt: nowIso() },
+    { id: lTravel, name: 'Travel', accent: '#7FA8D6', icon: 'star', sortOrder: 7, createdAt: nowIso() },
+  ];
+
+  // Helper for relative dates
+  const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString(); };
+  const daysFromNow = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString(); };
+  const hoursFromNow = (h) => { const d = new Date(); d.setHours(d.getHours() + h); return d.toISOString(); };
+
+  const tasks = [
+    // Today / active tasks
+    { id: uid('t'), title: 'Reply to design feedback email', note: 'Check Figma comments too', listId: lWork, dueAt: hoursFromNow(2), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 0, createdAt: nowIso() },
+    { id: uid('t'), title: 'Review pull request #47', note: 'Focus on the API layer changes', listId: lWork, dueAt: hoursFromNow(4), reminderAt: null, recurring: null, priority: 'medium', isCompleted: false, completedAt: null, sortOrder: 1, createdAt: nowIso() },
+    { id: uid('t'), title: 'Finish chapter 8 notes', note: '', listId: lStudy, dueAt: nowIso(), reminderAt: null, recurring: null, priority: 'medium', isCompleted: false, completedAt: null, sortOrder: 2, createdAt: nowIso() },
+    { id: uid('t'), title: 'Buy groceries for the week', note: 'Milk, eggs, bread, spinach, chicken', listId: lShopping, dueAt: nowIso(), reminderAt: null, recurring: 'weekly', priority: 'medium', isCompleted: false, completedAt: null, sortOrder: 3, createdAt: nowIso() },
+    { id: uid('t'), title: 'Morning workout — upper body', note: '', listId: lFitness, dueAt: nowIso(), reminderAt: null, recurring: 'daily', priority: 'low', isCompleted: false, completedAt: null, sortOrder: 4, createdAt: nowIso() },
+    { id: uid('t'), title: 'Call the dentist for appointment', note: '', listId: lPersonal, dueAt: nowIso(), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 5, createdAt: nowIso() },
+    { id: uid('t'), title: 'Water the plants', note: '', listId: lHome, dueAt: nowIso(), reminderAt: null, recurring: 'daily', priority: 'low', isCompleted: false, completedAt: null, sortOrder: 6, createdAt: nowIso() },
+    { id: uid('t'), title: 'Read 30 pages of Atomic Habits', note: 'Chapter on identity-based habits', listId: lReading, dueAt: nowIso(), reminderAt: null, recurring: null, priority: 'medium', isCompleted: false, completedAt: null, sortOrder: 7, createdAt: nowIso() },
+    // Overdue tasks
+    { id: uid('t'), title: 'Submit expense report', note: 'Q2 receipts', listId: lWork, dueAt: daysAgo(2), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 8, createdAt: daysAgo(5) },
+    { id: uid('t'), title: 'Fix the leaking kitchen faucet', note: 'Call plumber if needed', listId: lHome, dueAt: daysAgo(1), reminderAt: null, recurring: null, priority: 'medium', isCompleted: false, completedAt: null, sortOrder: 9, createdAt: daysAgo(3) },
+    // Scheduled (future) tasks
+    { id: uid('t'), title: 'Book flight to Istanbul', note: 'Check prices on Skyscanner', listId: lTravel, dueAt: daysFromNow(3), reminderAt: null, recurring: null, priority: 'medium', isCompleted: false, completedAt: null, sortOrder: 10, createdAt: nowIso() },
+    { id: uid('t'), title: 'Prepare presentation slides', note: 'Use the new brand template', listId: lWork, dueAt: daysFromNow(2), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 11, createdAt: nowIso() },
+    { id: uid('t'), title: 'Renew gym membership', note: '', listId: lFitness, dueAt: daysFromNow(5), reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 12, createdAt: nowIso() },
+    { id: uid('t'), title: 'Research Airbnb for Cappadocia', note: 'Cave hotels look amazing', listId: lTravel, dueAt: daysFromNow(7), reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 13, createdAt: nowIso() },
+    { id: uid('t'), title: 'Study for algorithms exam', note: 'Dynamic programming & graphs', listId: lStudy, dueAt: daysFromNow(4), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 14, createdAt: nowIso() },
+    // Undated tasks
+    { id: uid('t'), title: 'Organize photo gallery', note: '', listId: lPersonal, dueAt: null, reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 15, createdAt: nowIso() },
+    { id: uid('t'), title: 'Learn basic Turkish phrases', note: 'Merhaba, Teşekkürler, Lütfen', listId: lTravel, dueAt: null, reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 16, createdAt: nowIso() },
+    // Completed tasks (for Journal)
+    { id: uid('t'), title: 'Send the Fellows essay', note: '', listId: lWork, dueAt: daysAgo(0), reminderAt: null, recurring: null, priority: 'medium', isCompleted: true, completedAt: nowIso(), sortOrder: 17, createdAt: daysAgo(1) },
+    { id: uid('t'), title: 'Clean desk and organize cables', note: '', listId: lHome, dueAt: daysAgo(0), reminderAt: null, recurring: null, priority: 'low', isCompleted: true, completedAt: nowIso(), sortOrder: 18, createdAt: daysAgo(1) },
+    { id: uid('t'), title: 'Finish React Native tutorial', note: '', listId: lStudy, dueAt: daysAgo(1), reminderAt: null, recurring: null, priority: 'medium', isCompleted: true, completedAt: daysAgo(1), sortOrder: 19, createdAt: daysAgo(3) },
+    { id: uid('t'), title: 'Run 5K at the park', note: 'Personal best: 24:30', listId: lFitness, dueAt: daysAgo(1), reminderAt: null, recurring: null, priority: 'medium', isCompleted: true, completedAt: daysAgo(1), sortOrder: 20, createdAt: daysAgo(2) },
+    { id: uid('t'), title: 'Order birthday gift for Mom', note: 'She mentioned wanting a scarf', listId: lShopping, dueAt: daysAgo(2), reminderAt: null, recurring: null, priority: 'high', isCompleted: true, completedAt: daysAgo(2), sortOrder: 21, createdAt: daysAgo(4) },
+    { id: uid('t'), title: 'Backup phone photos', note: '', listId: lPersonal, dueAt: daysAgo(2), reminderAt: null, recurring: null, priority: 'low', isCompleted: true, completedAt: daysAgo(2), sortOrder: 22, createdAt: daysAgo(5) },
+    { id: uid('t'), title: 'Read chapter on mindfulness', note: '', listId: lReading, dueAt: daysAgo(3), reminderAt: null, recurring: null, priority: 'low', isCompleted: true, completedAt: daysAgo(3), sortOrder: 23, createdAt: daysAgo(6) },
+    { id: uid('t'), title: 'Weekly meal prep', note: 'Chicken, rice, veggies for 5 days', listId: lHome, dueAt: daysAgo(3), reminderAt: null, recurring: 'weekly', priority: 'medium', isCompleted: true, completedAt: daysAgo(3), sortOrder: 24, createdAt: daysAgo(7) },
+  ];
+
+  const notes = [
+    { id: uid('n'), title: 'App ideas', content: 'Habit tracker with gamification\nAI-powered recipe generator\nMinimalist weather app', accent: '#E58A4B', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Meeting notes — Sprint 14', content: 'Focus on onboarding flow redesign.\nDeadline: end of week.\nAssign: Haseeb — UI, Ali — API.', accent: '#6FB890', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Books to read', content: 'Atomic Habits — James Clear\nDeep Work — Cal Newport\nThe Design of Everyday Things\nSteal Like an Artist', accent: '#9A6A8C', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Grocery list extras', content: 'Avocados, hummus, dark chocolate, green tea, oat milk', accent: '#5A7E8C', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Workout split', content: 'Mon: Chest + Triceps\nTue: Back + Biceps\nWed: Legs\nThu: Shoulders\nFri: Full body\nSat: Cardio\nSun: Rest', accent: '#7E8C5A', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Travel packing list', content: 'Passport, charger, adapter, sunscreen, comfortable shoes, camera, travel pillow', accent: '#7FA8D6', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Quotes I love', content: '"The best time to plant a tree was 20 years ago. The second best time is now."\n"Be the change you wish to see in the world."', accent: '#E0A24A', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Design inspiration', content: 'Glassmorphism cards\nNeumorphic buttons\nGradient mesh backgrounds\nMicro-animations on hover\nDynamic island UI pattern', accent: '#B57CA3', createdAt: nowIso(), updatedAt: nowIso() },
   ];
 
   return {
     schema: SCHEMA,
     lists,
-    tasks: [],
+    tasks,
+    notes,
     settings: {
       theme: 'dark',
       haptics: true,
@@ -50,15 +114,92 @@ function seed() {
       sound: false,
       onboarded: false,
       purchased: false,
-      accent: '#E58A4B',
+      purchasedAt: null,
+      accent: null,
+      pet: 'zen',
       sansTitles: false,
     },
   };
 }
 
+/* ============================================================
+   Validation — ensures state integrity on every hydrate / import.
+   Fixes: duplicate IDs, orphaned listId refs, inconsistent
+   completion state, sortOrder gaps.
+   ============================================================ */
+function validateState(state) {
+  if (!state) return seed();
+
+  let modified = false;
+  const listIds = new Set((state.lists || []).map((l) => l.id));
+
+  if (!state.notes) {
+    state.notes = [];
+    modified = true;
+  }
+
+  // Deduplicate tasks by ID (keep the most recent version)
+  const taskById = new Map();
+  for (const t of state.tasks || []) {
+    const existing = taskById.get(t.id);
+    if (!existing || (t.createdAt && (!existing.createdAt || t.createdAt > existing.createdAt))) {
+      taskById.set(t.id, t);
+    } else {
+      modified = true; // found a duplicate
+    }
+  }
+
+  let tasks = Array.from(taskById.values()).map((t) => {
+    let patched = t;
+
+    // Fix orphaned listId references → move to Inbox
+    if (t.listId && !listIds.has(t.listId)) {
+      patched = { ...patched, listId: null };
+      modified = true;
+    }
+
+    // Fix inconsistent completion state
+    if (t.isCompleted && !t.completedAt) {
+      patched = { ...patched, completedAt: nowIso() };
+      modified = true;
+    }
+    if (!t.isCompleted && t.completedAt) {
+      patched = { ...patched, completedAt: null };
+      modified = true;
+    }
+
+    return patched;
+  });
+
+  // Normalize sortOrder — re-index to remove gaps
+  const active = tasks.filter((t) => !t.isCompleted).sort((a, b) => a.sortOrder - b.sortOrder);
+  active.forEach((t, i) => {
+    if (t.sortOrder !== i) {
+      t.sortOrder = i;
+      modified = true;
+    }
+  });
+
+  // Deduplicate lists by ID
+  const seenListIds = new Set();
+  const lists = (state.lists || []).filter((l) => {
+    if (seenListIds.has(l.id)) {
+      modified = true;
+      return false;
+    }
+    seenListIds.add(l.id);
+    return true;
+  });
+
+  if (modified) {
+    return { ...state, tasks, lists, notes: state.notes || [] };
+  }
+  return state;
+}
+
 function migrate(data) {
   const base = seed();
-  return {
+  const merged = {
     ...base,
     ...data,
     schema: SCHEMA,
@@ -69,9 +210,12 @@ function migrate(data) {
     })),
     tasks: (Array.isArray(data.tasks) ? data.tasks : base.tasks).map((t) => ({
       recurring: null,
+      priority: 'medium',
       ...t,
     })),
+    notes: Array.isArray(data.notes) ? data.notes : [],
   };
+  return validateState(merged);
 }
 
 /* ============================================================
@@ -83,7 +227,7 @@ function reducer(state, action) {
       return action.payload;
 
     case 'ADD_TASK': {
-      const { title, note, listId, dueAt, reminderAt, recurring } = action.payload;
+      const { title, note, listId, dueAt, reminderAt, recurring, priority } = action.payload;
       if (!title || !title.trim()) return state;
       const minOrder = Math.min(0, ...state.tasks.map((t) => t.sortOrder)) - 1;
       const task = {
@@ -94,6 +238,7 @@ function reducer(state, action) {
         dueAt: dueAt || null,
         reminderAt: reminderAt || null,
         recurring: recurring || null,
+        priority: priority || 'medium',
         isCompleted: false,
         completedAt: null,
         sortOrder: minOrder,
@@ -160,6 +305,33 @@ function reducer(state, action) {
       };
     }
 
+    case 'ADD_NOTE': {
+      const { title, content, accent } = action.payload;
+      const note = {
+        id: uid('n'),
+        title: (title || '').trim(),
+        content: (content || '').trim(),
+        accent: accent || ACCENTS[0],
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      };
+      return { ...state, notes: [note, ...(state.notes || [])] };
+    }
+
+    case 'UPDATE_NOTE':
+      return {
+        ...state,
+        notes: (state.notes || []).map((n) =>
+          n.id === action.payload.id ? { ...n, ...action.payload.patch, updatedAt: nowIso() } : n
+        ),
+      };
+
+    case 'DELETE_NOTE':
+      return {
+        ...state,
+        notes: (state.notes || []).filter((n) => n.id !== action.payload.id),
+      };
+
     case 'SET_SETTING':
       return { ...state, settings: { ...state.settings, [action.payload.key]: action.payload.value } };
 
@@ -178,6 +350,53 @@ function reducer(state, action) {
 }
 
 /* ============================================================
+   Atomic persistence — write to .pending first, then swap.
+   If the app crashes mid-write, the previous good state survives.
+   ============================================================ */
+async function persistState(state) {
+  const json = JSON.stringify(state);
+  try {
+    // 1. Write to pending key
+    await AsyncStorage.setItem(KEY_PENDING, json);
+    // 2. Write to primary key (atomic swap)
+    await AsyncStorage.setItem(KEY, json);
+    // 3. Clear pending (successful write)
+    await AsyncStorage.removeItem(KEY_PENDING);
+  } catch (e) {
+    console.warn('[Store] Persist failed:', e.message);
+  }
+}
+
+/**
+ * Load state with crash recovery. If the primary key is corrupt,
+ * try the pending key as a fallback.
+ */
+async function loadState() {
+  try {
+    const raw = await AsyncStorage.getItem(KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return migrate(parsed);
+    }
+  } catch (e) {
+    console.warn('[Store] Primary key corrupt, trying pending fallback');
+  }
+
+  // Fallback: try the pending key
+  try {
+    const pending = await AsyncStorage.getItem(KEY_PENDING);
+    if (pending) {
+      const parsed = JSON.parse(pending);
+      return migrate(parsed);
+    }
+  } catch (e) {
+    console.warn('[Store] Pending key also corrupt, starting fresh');
+  }
+
+  return seed();
+}
+
+/* ============================================================
    context + provider (async hydrate)
    ============================================================ */
 const StoreCtx = createContext(null);
@@ -186,29 +405,35 @@ export function StoreProvider({ children, fallback = null }) {
   const [state, dispatch] = useReducer(reducer, null);
   const [ready, setReady] = useState(false);
   const hydrated = useRef(false);
+  const persistTimer = useRef(null);
 
-  // load once from AsyncStorage
+  // load once from AsyncStorage (with crash recovery)
   useEffect(() => {
     (async () => {
-      let initial;
-      try {
-        const raw = await AsyncStorage.getItem(KEY);
-        initial = raw ? migrate(JSON.parse(raw)) : seed();
-        initial = resetRecurringTasks(initial);
-      } catch (e) {
-        initial = seed();
-      }
+      let initial = await loadState();
+      initial = resetRecurringTasks(initial);
       dispatch({ type: 'HYDRATE', payload: initial });
       hydrated.current = true;
       setReady(true);
+
+      // Restore all alarms after boot / app launch (Competitor Fix #1)
+      rescheduleAllReminders(initial.tasks);
     })();
   }, []);
 
-  // persist on change (after hydration)
+  // Debounced persist on change (after hydration)
   useEffect(() => {
     if (!hydrated.current || !state) return;
-    AsyncStorage.setItem(KEY, JSON.stringify(state)).catch(() => {});
-    // keep any placed Android home-screen widget in sync (no-op elsewhere)
+
+    // Debounce writes to prevent AsyncStorage contention under
+    // rapid interactions (drag-reorder, quick completions)
+    clearTimeout(persistTimer.current);
+    persistTimer.current = setTimeout(() => {
+      persistState(state);
+    }, PERSIST_DEBOUNCE_MS);
+
+    // Keep any placed Android home-screen widget in sync (no-op elsewhere).
+    // Widget updates are independently debounced in updateWidget.js.
     updateTodayWidget(state);
   }, [state]);
 
@@ -318,6 +543,9 @@ function makeActions(dispatch) {
     addList: (name, accent, icon) => dispatch({ type: 'ADD_LIST', payload: { name, accent, icon } }),
     updateList: (id, patch) => dispatch({ type: 'UPDATE_LIST', payload: { id, patch } }),
     deleteList: (id) => dispatch({ type: 'DELETE_LIST', payload: { id } }),
+    addNote: (p) => dispatch({ type: 'ADD_NOTE', payload: p }),
+    updateNote: (id, patch) => dispatch({ type: 'UPDATE_NOTE', payload: { id, patch } }),
+    deleteNote: (id) => dispatch({ type: 'DELETE_NOTE', payload: { id } }),
     setSetting: (key, value) => dispatch({ type: 'SET_SETTING', payload: { key, value } }),
     clearCompleted: () => dispatch({ type: 'CLEAR_COMPLETED' }),
     importData: (data) => dispatch({ type: 'IMPORT', payload: { data } }),

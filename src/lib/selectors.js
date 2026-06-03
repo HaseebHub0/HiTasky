@@ -5,6 +5,33 @@ import { isToday, isOverdue, isSameDay, addDays } from './date.js';
 
 const bySort = (a, b) => a.sortOrder - b.sortOrder;
 
+// Priority weighting — High surfaces first, then Medium, then Low.
+// Tasks with no priority set are treated as Medium.
+const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
+function prank(t) {
+  const r = PRIORITY_RANK[t && t.priority];
+  return r == null ? 1 : r;
+}
+
+// Smart task order: scheduled date & time first (sooner = higher),
+// then priority (High → Low), then creation time as a stable
+// tiebreak. Dated tasks always sort ahead of undated ones, so a
+// brand-new undated task no longer jumps to the top.
+export function smartCompare(a, b) {
+  const ta = a.dueAt ? new Date(a.dueAt).getTime() : null;
+  const tb = b.dueAt ? new Date(b.dueAt).getTime() : null;
+  if (ta != null && tb != null) {
+    if (ta !== tb) return ta - tb;
+  } else if (ta != null) {
+    return -1;
+  } else if (tb != null) {
+    return 1;
+  }
+  const pr = prank(a) - prank(b);
+  if (pr !== 0) return pr;
+  return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+}
+
 export function activeTasks(state) {
   return state.tasks.filter((t) => !t.isCompleted);
 }
@@ -14,19 +41,19 @@ export function activeTasks(state) {
 export function todayTasks(state) {
   return activeTasks(state)
     .filter((t) => isToday(t.dueAt) || isOverdue(t.dueAt) || (!t.dueAt && isToday(t.createdAt)))
-    .sort(bySort);
+    .sort(smartCompare);
 }
 
 export function inboxTasks(state) {
   return activeTasks(state)
     .filter((t) => !t.listId)
-    .sort(bySort);
+    .sort(smartCompare);
 }
 
 export function tasksForList(state, listId, { includeDone = true } = {}) {
   const all = state.tasks.filter((t) => t.listId === listId);
   return {
-    active: all.filter((t) => !t.isCompleted).sort(bySort),
+    active: all.filter((t) => !t.isCompleted).sort(smartCompare),
     done: includeDone
       ? all
           .filter((t) => t.isCompleted)
@@ -83,5 +110,5 @@ export function scheduledTasks(state) {
       
       return d.getTime() >= startOfTomorrow.getTime();
     })
-    .sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt));
+    .sort(smartCompare);
 }

@@ -16,7 +16,9 @@ import { useStore } from '../lib/store.js';
 import { useAppTheme } from '../lib/useTheme.js';
 import { listSummary, tasksForList, inboxTasks } from '../lib/selectors.js';
 import { Icon } from '../components/icons.js';
+import { Wordmark } from '../components/Wordmark.js';
 import { TaskCard } from '../components/TaskCard.js';
+import { getPet } from '../lib/pets.js';
 import { Kicker, Display, H2, ConfirmDialog, EmptyState } from '../components/ui.js';
 import { FONT, ACCENTS, softOf } from '../theme.js';
 
@@ -29,14 +31,46 @@ const LIST_ICONS = [
   { id: 'star', label: 'Star' },
 ];
 
+function ListsOverviewHeader({ theme, settings, s, onOpenPets, onOpenSettings }) {
+  const currentPet = settings?.pet || 'zen';
+  const pet = getPet(currentPet);
+
+  return (
+    <View style={s.header}>
+      <View style={s.brandRow}>
+        <Pressable
+          onPress={onOpenPets}
+          hitSlop={8}
+          style={[s.petBtn, { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+          accessibilityRole="button"
+          accessibilityLabel="Open pet companion selector"
+        >
+          <Text style={s.petEmoji}>{pet.emoji}</Text>
+        </Pressable>
+        <Wordmark theme={theme} size={22} />
+      </View>
+      <View style={s.headerRight}>
+        <Pressable
+          onPress={onOpenSettings}
+          hitSlop={8}
+          style={s.settingsBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Open settings"
+        >
+          <Icon.sliders size={18} color={theme.text3} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 /* ================================================================
    OVERVIEW — every list at a glance
    ================================================================ */
-export function ListsOverview({ onOpenList, onNewList }) {
+export function ListsOverview({ onOpenList, onNewList, onOpenPets, onOpenSettings }) {
   const { state } = useStore();
   const theme = useAppTheme();
   const lists = listSummary(state);
-  const inbox = inboxTasks(state);
   const s = makeOverviewStyles(theme);
 
   const tile = (key, icon, name, sub, accent, onPress) => (
@@ -54,15 +88,13 @@ export function ListsOverview({ onOpenList, onNewList }) {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-      <View style={s.header}>
-        <Kicker style={{ color: theme.text3, marginBottom: 10 }}>Your lists</Kicker>
-        <Display style={{ color: theme.text }}>Everything, in its place.</Display>
-      </View>
-
-      {/* Inbox */}
-      {tile('inbox', <Icon.lists size={20} color={theme.text3} />, 'Inbox',
-        inbox.length === 0 ? 'Empty' : `${inbox.length} unfiled`,
-        null, () => onOpenList(null))}
+      <ListsOverviewHeader
+        theme={theme}
+        settings={state.settings}
+        s={s}
+        onOpenPets={onOpenPets}
+        onOpenSettings={onOpenSettings}
+      />
 
       {/* Lists */}
       {lists.map((l) => {
@@ -85,7 +117,7 @@ export function ListsOverview({ onOpenList, onNewList }) {
         </View>
       </Pressable>
 
-      <View style={{ height: 100 }} />
+      <View style={{ height: 140 }} />
     </ScrollView>
   );
 }
@@ -93,7 +125,47 @@ export function ListsOverview({ onOpenList, onNewList }) {
 function makeOverviewStyles(t) {
   return StyleSheet.create({
     scroll: { paddingHorizontal: 22 },
-    header: { paddingTop: 18, paddingBottom: 18 },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 22,
+      paddingVertical: 14,
+      borderRadius: 32,
+      borderWidth: 2,
+      borderColor: t.surface2,
+      backgroundColor: t.surface,
+      marginTop: 16,
+      marginBottom: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: t.mode === 'light' ? 0.08 : 0.25,
+      shadowRadius: 12,
+      elevation: 5,
+    },
+    brandRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    headerRight: { flexDirection: 'row', alignItems: 'center' },
+    petBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      borderWidth: 1.5,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    petEmoji: {
+      fontSize: 18,
+    },
+    settingsBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: t.hairline2,
+      backgroundColor: t.surface2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     tile: {
       backgroundColor: t.surface,
       borderRadius: t.radius,
@@ -125,7 +197,7 @@ function makeOverviewStyles(t) {
 /* ================================================================
    DETAIL — a single list's tasks
    ================================================================ */
-export function ListDetail({ listId, onBack, onOpenTask, onAddTask, onTriggerPaywall }) {
+export function ListDetail({ listId, onBack, onOpenTask, onAddTask, onTriggerPaywall, onOpenPets, onOpenSettings }) {
   const { state, actions } = useStore();
   const theme = useAppTheme();
   const [editing, setEditing] = useState(false);
@@ -155,10 +227,32 @@ export function ListDetail({ listId, onBack, onOpenTask, onAddTask, onTriggerPay
   return (
     <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
       <View style={s.header}>
-        <Pressable style={s.backBtn} onPress={onBack}>
-          <Icon.chevLeft size={16} color={theme.text3} />
-          <Text style={[s.backText, { color: theme.text3 }]}>Lists</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <Pressable style={s.backBtn} onPress={onBack}>
+            <Icon.chevLeft size={16} color={theme.text3} />
+            <Text style={[s.backText, { color: theme.text3 }]}>Lists</Text>
+          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Pressable
+              onPress={onOpenPets}
+              hitSlop={8}
+              style={[s.petBtn, { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              accessibilityRole="button"
+              accessibilityLabel="Open pet companion selector"
+            >
+              <Text style={s.petEmoji}>{getPet(state.settings.pet || 'zen').emoji}</Text>
+            </Pressable>
+            <Pressable
+              onPress={onOpenSettings}
+              hitSlop={8}
+              style={s.settingsBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Open settings"
+            >
+              <Icon.sliders size={18} color={theme.text3} />
+            </Pressable>
+          </View>
+        </View>
 
         <View style={s.headerRow}>
           <View style={{ flex: 1 }}>
@@ -186,8 +280,8 @@ export function ListDetail({ listId, onBack, onOpenTask, onAddTask, onTriggerPay
             </View>
           </View>
           {!isInbox && (
-            <Pressable onPress={() => setEditing(true)} hitSlop={10}>
-              <Icon.gear size={22} color={theme.text3} />
+            <Pressable onPress={() => setEditing(true)} hitSlop={10} style={[s.settingsBtn, { width: 38, height: 38, borderRadius: 12 }]}>
+              <Icon.gear size={20} color={theme.text3} />
             </Pressable>
           )}
         </View>
@@ -285,10 +379,58 @@ export function ListDetail({ listId, onBack, onOpenTask, onAddTask, onTriggerPay
 function makeDetailStyles(t) {
   return StyleSheet.create({
     scroll: { paddingHorizontal: 22 },
-    header: { paddingTop: 18, paddingBottom: 18 },
-    backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 22,
+      paddingVertical: 14,
+      borderRadius: 32,
+      borderWidth: 2,
+      borderColor: t.surface2,
+      backgroundColor: t.surface,
+      marginTop: 16,
+      marginBottom: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: t.mode === 'light' ? 0.08 : 0.25,
+      shadowRadius: 12,
+      elevation: 5,
+    },
+    backBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: t.hairline2,
+      backgroundColor: t.surface2,
+    },
     backText: { fontFamily: FONT.sansSemi, fontSize: 14 },
-    headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+    petBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      borderWidth: 1.5,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    petEmoji: {
+      fontSize: 18,
+    },
+    settingsBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: t.hairline2,
+      backgroundColor: t.surface2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginTop: 12 },
     progress: { marginTop: 10 },
     progressText: { fontFamily: FONT.sansMedium, fontSize: 13, color: t.text3 },
     addCard: {

@@ -4,7 +4,7 @@
 // ============================================================
 import React from 'react';
 import { Image } from 'react-native';
-import Svg, { Path, Rect, Circle, G } from 'react-native-svg';
+import Svg, { Path, Rect, Circle, G, Ellipse } from 'react-native-svg';
 import { useAppTheme } from '../lib/useTheme.js';
 
 
@@ -52,6 +52,11 @@ export const Icon = {
         strokeLinecap="round"
         fill="none"
       />
+    </S>
+  ),
+  moon: ({ size = 18, color = '#999' }) => (
+    <S width={size} height={size} viewBox="0 0 20 20">
+      <Path d="M16.2 12.6A6.6 6.6 0 117.4 3.8a5.2 5.2 0 008.8 8.8z" stroke={color} strokeWidth={1.6} strokeLinejoin="round" fill="none" />
     </S>
   ),
   haptic: ({ size = 18, color = '#999' }) => (
@@ -167,6 +172,14 @@ export const Icon = {
       />
     </S>
   ),
+  sliders: ({ size = 22, color = '#999' }) => (
+    <S width={size} height={size} viewBox="0 0 20 20">
+      <Path d="M3 5h14M3 10h14M3 15h14" stroke={color} strokeWidth={1.5} strokeLinecap="round" fill="none" />
+      <Circle cx={7} cy={5} r={2} fill={color} />
+      <Circle cx={13} cy={10} r={2} fill={color} />
+      <Circle cx={9} cy={15} r={2} fill={color} />
+    </S>
+  ),
   hand: ({ size = 14, color = '#E58A4B' }) => (
     <S width={size} height={size} viewBox="0 0 16 16">
       <Path d="M8 2v6M5 9V5.5M11 9V5.5M5 9c0 3 1.3 5 3 5s3-2 3-5" stroke={color} strokeWidth={1.5} strokeLinecap="round" fill="none" />
@@ -193,6 +206,23 @@ export const Icon = {
         <Circle cx={10} cy={8} r={1.3} />
         <Circle cx={6} cy={12} r={1.3} />
         <Circle cx={10} cy={12} r={1.3} />
+      </G>
+    </S>
+  ),
+  lock: ({ size = 16, color = '#999' }) => (
+    <S width={size} height={size} viewBox="0 0 20 20">
+      <Rect x={4} y={9} width={12} height={8.5} rx={2.4} stroke={color} strokeWidth={1.7} fill="none" />
+      <Path d="M6.6 9V6.8a3.4 3.4 0 016.8 0V9" stroke={color} strokeWidth={1.7} strokeLinecap="round" fill="none" />
+    </S>
+  ),
+  paw: ({ size = 18, color = '#999' }) => (
+    <S width={size} height={size} viewBox="0 0 20 20">
+      <G fill={color}>
+        <Ellipse cx={10} cy={13} rx={4} ry={3.4} />
+        <Circle cx={5.4} cy={9.2} r={1.7} />
+        <Circle cx={9} cy={6.8} r={1.8} />
+        <Circle cx={13} cy={7.2} r={1.8} />
+        <Circle cx={15.2} cy={10} r={1.6} />
       </G>
     </S>
   ),

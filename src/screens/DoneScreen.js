@@ -3,12 +3,14 @@
 // Shows streaks, weekly productivity charts, and logs.
 // ============================================================
 import React, { useCallback } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useStore } from '../lib/store.js';
 import { useAppTheme } from '../lib/useTheme.js';
 import { doneGroups, listName } from '../lib/selectors.js';
+import { Icon } from '../components/icons.js';
 import { Wordmark } from '../components/Wordmark.js';
 import { TaskCard } from '../components/TaskCard.js';
+import { getPet } from '../lib/pets.js';
 import { Kicker, Display, H2, Meta, EmptyState } from '../components/ui.js';
 import { FONT } from '../theme.js';
 
@@ -46,7 +48,40 @@ function calculateStreak(tasks) {
   return streak;
 }
 
-export function DoneScreen({ onOpenTask }) {
+function DoneHeader({ theme, settings, s, onOpenPets, onOpenSettings }) {
+  const currentPet = settings?.pet || 'zen';
+  const pet = getPet(currentPet);
+
+  return (
+    <View style={s.header}>
+      <View style={s.brandRow}>
+        <Pressable
+          onPress={onOpenPets}
+          hitSlop={8}
+          style={[s.petBtn, { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+          accessibilityRole="button"
+          accessibilityLabel="Open pet companion selector"
+        >
+          <Text style={s.petEmoji}>{pet.emoji}</Text>
+        </Pressable>
+        <Wordmark theme={theme} size={22} />
+      </View>
+      <View style={s.headerRight}>
+        <Pressable
+          onPress={onOpenSettings}
+          hitSlop={8}
+          style={s.settingsBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Open settings"
+        >
+          <Icon.sliders size={18} color={theme.text3} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+export function DoneScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
   const { state, actions } = useStore();
   const theme = useAppTheme();
   const { today, yesterday, earlier, total } = doneGroups(state);
@@ -108,9 +143,17 @@ export function DoneScreen({ onOpenTask }) {
       showsVerticalScrollIndicator={false}
     >
       {/* Header */}
-      <View style={s.header}>
-        <Wordmark theme={theme} size={22} />
-        <Text style={[s.dateMeta, { color: theme.text3 }]}>Journal</Text>
+      <DoneHeader
+        theme={theme}
+        settings={state.settings}
+        s={s}
+        onOpenPets={onOpenPets}
+        onOpenSettings={onOpenSettings}
+      />
+
+      <View style={{ marginTop: 6, marginBottom: 16 }}>
+        <Kicker style={{ color: theme.text3, marginBottom: 6 }}>Journal</Kicker>
+        <Display style={{ color: theme.text }}>Your progress.</Display>
       </View>
 
       {/* Stats Cards Row */}
@@ -198,7 +241,7 @@ export function DoneScreen({ onOpenTask }) {
         />
       )}
 
-      <View style={{ height: 100 }} />
+      <View style={{ height: 140 }} />
     </ScrollView>
   );
 }
@@ -211,8 +254,42 @@ function makeStyles(t) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingTop: 16,
-      paddingBottom: 22,
+      paddingHorizontal: 22,
+      paddingVertical: 14,
+      borderRadius: 32,
+      borderWidth: 2,
+      borderColor: t.surface2,
+      backgroundColor: t.surface,
+      marginTop: 16,
+      marginBottom: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: t.mode === 'light' ? 0.08 : 0.25,
+      shadowRadius: 12,
+      elevation: 5,
+    },
+    brandRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    headerRight: { flexDirection: 'row', alignItems: 'center' },
+    petBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      borderWidth: 1.5,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    petEmoji: {
+      fontSize: 18,
+    },
+    settingsBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: t.hairline2,
+      backgroundColor: t.surface2,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
     dateMeta: { fontFamily: FONT.sansMedium, fontSize: 13 },

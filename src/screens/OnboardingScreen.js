@@ -20,8 +20,10 @@ import { useStore } from '../lib/store.js';
 import { useAppTheme } from '../lib/useTheme.js';
 import { Icon } from '../components/icons.js';
 import { Wordmark } from '../components/Wordmark.js';
+import { Pet } from '../components/Pet.js';
 import { requestPermissions } from '../lib/notifications.js';
 import { FREE_FOR_ALL } from '../lib/config.js';
+import { PETS, getPet, emitPetReaction } from '../lib/pets.js';
 import { FONT, makeTheme, softOf } from '../theme.js';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -34,6 +36,7 @@ function WelcomeCardStack({ theme }) {
 
   useEffect(() => {
     Animated.spring(enter, { toValue: 1, friction: 7, tension: 55, useNativeDriver: true }).start();
+
     const mk = (val, d) =>
       Animated.loop(
         Animated.sequence([
@@ -355,20 +358,63 @@ export function OnboardingScreen() {
   const fadeIn = useRef(new Animated.Value(0)).current;
   const enter = useRef(new Animated.Value(0)).current; // panel content fade/rise
 
-  const theme = makeTheme(sel, state.settings.accent);
+  // Interactive Zen Pond ripples
+  const [ripples, setRipples] = useState([]);
+
+  // Drifting leaves animations
+  const leaf1 = useRef(new Animated.Value(0)).current;
+  const leaf2 = useRef(new Animated.Value(0)).current;
+  const leaf3 = useRef(new Animated.Value(0)).current;
+
+  const theme = makeTheme(sel, state.settings.accent, state.settings.pet || 'zen'); // Follow selected pet theme
 
   // live-apply theme as user picks
   useEffect(() => {
     if (state.settings.theme !== sel) actions.setSetting('theme', sel);
   }, [sel]);
 
-  // first panel fades in on mount
+  // first panel fades in on mount + start drifting leaves
   useEffect(() => {
     Animated.timing(enter, { toValue: 1, duration: 520, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+
+    const floatAnim = (anim, duration, delay) => {
+      anim.setValue(0);
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: duration,
+            easing: Easing.linear,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
+
+    floatAnim(leaf1, 15000, 0);
+    floatAnim(leaf2, 19000, 2500);
+    floatAnim(leaf3, 23000, 6000);
   }, []);
 
+  const handleTouchStart = (e) => {
+    const { pageX, pageY } = e.nativeEvent;
+    const id = Date.now() + Math.random();
+    const anim = new Animated.Value(0);
+    const newRipple = { id, x: pageX, y: pageY, anim };
+    setRipples((prev) => [...prev, newRipple]);
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 1200,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start(() => {
+      setRipples((prev) => prev.filter((r) => r.id !== id));
+    });
+  };
+
   const goTo = useCallback((p) => {
-    const target = Math.max(0, Math.min(p, 7));
+    const target = Math.max(0, Math.min(p, 8));
     flatRef.current?.scrollToIndex({ index: target, animated: true });
     setPage(target);
     // replay the content entrance for the panel we just landed on
@@ -377,17 +423,18 @@ export function OnboardingScreen() {
   }, []);
 
   const next = useCallback(() => goTo(page + 1), [page]);
-  const skip = useCallback(() => goTo(7), []);
+  const skip = useCallback(() => goTo(8), []);
 
   const finish = useCallback((purchased) => {
     setDone(true);
     Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: true }).start();
     setTimeout(() => {
       actions.setSetting('theme', sel);
+      actions.setSetting('pet', state.settings.pet || 'zen'); // Meditative Zen frog is the companion by default
       if (purchased) actions.setSetting('purchased', true);
       actions.setSetting('onboarded', true);
     }, 1500);
-  }, [sel]);
+  }, [sel, state.settings.pet]);
 
   const s = makeStyles(theme);
 
@@ -406,17 +453,75 @@ export function OnboardingScreen() {
     <CreateListPanel key="create-list" theme={theme} s={s} next={next} skip={skip} firstListName={firstListName} setFirstListName={setFirstListName} actions={actions} />,
     // 6 · CREATE TASK
     <CreateTaskPanel key="create-task" theme={theme} s={s} next={next} skip={skip} firstTaskTitle={firstTaskTitle} setFirstTaskTitle={setFirstTaskTitle} actions={actions} state={state} />,
-    // 7 · PURCHASE / FREE
+    // 7 · COMPANION
+    <CompanionPanel key="companion" theme={theme} s={s} next={next} skip={skip} state={state} actions={actions} active={page === 7} />,
+    // 8 · PURCHASE / FREE
     FREE_FOR_ALL
       ? <FreePanel key="free" theme={theme} s={s} finish={finish} />
       : <PurchasePanel key="purchase" theme={theme} s={s} finish={finish} />,
   ];
 
+  // Interpolate leaves positions
+  const leafX1 = leaf1.interpolate({ inputRange: [0, 1], outputRange: [-50, SCREEN_W + 50] });
+  const leafY1 = leaf1.interpolate({ inputRange: [0, 0.5, 1], outputRange: [100, 130, 90] });
+  const leafRot1 = leaf1.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
+  const leafX2 = leaf2.interpolate({ inputRange: [0, 1], outputRange: [-50, SCREEN_W + 50] });
+  const leafY2 = leaf2.interpolate({ inputRange: [0, 0.5, 1], outputRange: [380, 340, 400] });
+  const leafRot2 = leaf2.interpolate({ inputRange: [0, 1], outputRange: ['90deg', '450deg'] });
+
+  const leafX3 = leaf3.interpolate({ inputRange: [0, 1], outputRange: [SCREEN_W + 50, -50] });
+  const leafY3 = leaf3.interpolate({ inputRange: [0, 0.5, 1], outputRange: [640, 670, 620] });
+  const leafRot3 = leaf3.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-270deg'] });
+
   return (
-    <View style={[s.root, { backgroundColor: theme.bg }]}>
+    <View style={[s.root, { backgroundColor: theme.bg }]} onTouchStart={handleTouchStart}>
+      {/* Drifting Leaves Background */}
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <View style={{ position: 'absolute', top: 0, left: 0 }}>
+          <Animated.Text style={{ fontSize: 24, zIndex: 1, transform: [{ translateX: leafX1 }, { translateY: leafY1 }, { rotate: leafRot1 }], opacity: theme.mode === 'light' ? 0.22 : 0.12 }}>🍃</Animated.Text>
+        </View>
+        <View style={{ position: 'absolute', top: 0, left: 0 }}>
+          <Animated.Text style={{ fontSize: 24, zIndex: 1, transform: [{ translateX: leafX2 }, { translateY: leafY2 }, { rotate: leafRot2 }], opacity: theme.mode === 'light' ? 0.18 : 0.1 }}>🌿</Animated.Text>
+        </View>
+        <View style={{ position: 'absolute', top: 0, left: 0 }}>
+          <Animated.Text style={{ fontSize: 24, zIndex: 1, transform: [{ translateX: leafX3 }, { translateY: leafY3 }, { rotate: leafRot3 }], opacity: theme.mode === 'light' ? 0.15 : 0.08 }}>🍃</Animated.Text>
+        </View>
+      </View>
+
+      {/* Zen Pond Touch Ripples */}
+      {ripples.map((r) => {
+        const scale = r.anim.interpolate({ inputRange: [0, 1], outputRange: [0.1, 4] });
+        const opacity = r.anim.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0] });
+        return (
+          <View
+            key={r.id}
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: r.x - 30,
+              top: r.y - 30,
+            }}
+          >
+            <Animated.View
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: 30,
+                borderWidth: 2,
+                borderColor: theme.accent,
+                opacity: opacity,
+                transform: [{ scale }],
+              }}
+            />
+          </View>
+        );
+      })}
+
       <FlatList
         ref={flatRef}
         data={panels}
+        extraData={theme}
         horizontal
         pagingEnabled
         scrollEnabled={false}
@@ -438,6 +543,7 @@ export function OnboardingScreen() {
 
       {done && (
         <Animated.View style={[s.doneOverlay, { backgroundColor: theme.bg, opacity: fadeIn }]}>
+          <Pet petId={state.settings.pet} theme={theme} size={96} mood="complete" />
           <Wordmark theme={theme} size={34} />
           <Text style={[s.doneTitle, { color: theme.text }]}>
             Welcome to <Text style={{ fontStyle: 'italic', color: theme.accent }}>Hi Tasky.</Text>
@@ -524,7 +630,7 @@ function CreateListPanel({ theme, s, next, skip, firstListName, setFirstListName
   return (
     <View style={s.panel}>
       <View style={s.topBar}>
-        <Dots n={8} i={5} theme={theme} />
+        <Dots n={9} i={5} theme={theme} />
         <Pressable onPress={skip}><Text style={[s.skip, { color: theme.text3 }]}>Skip</Text></Pressable>
       </View>
       <View style={[s.body, { justifyContent: 'center' }]}>
@@ -580,7 +686,7 @@ function CreateTaskPanel({ theme, s, next, skip, firstTaskTitle, setFirstTaskTit
   return (
     <View style={s.panel}>
       <View style={s.topBar}>
-        <Dots n={8} i={6} theme={theme} />
+        <Dots n={9} i={6} theme={theme} />
         <Pressable onPress={skip}><Text style={[s.skip, { color: theme.text3 }]}>Skip</Text></Pressable>
       </View>
       <View style={[s.body, { justifyContent: 'center' }]}>
@@ -630,6 +736,74 @@ function CreateTaskPanel({ theme, s, next, skip, firstTaskTitle, setFirstTaskTit
   );
 }
 
+/* ---- 7 · COMPANION ---- */
+function CompanionPanel({ theme, s, next, skip, state, actions, active }) {
+  const current = state.settings.pet || 'zen';
+  const pet = getPet(current);
+
+  // a happy little reaction whenever this panel lands or the pet changes
+  useEffect(() => {
+    if (!active) return undefined;
+    const t = setTimeout(() => emitPetReaction('complete'), 450);
+    return () => clearTimeout(t);
+  }, [active, current]);
+
+  const pick = (id) => {
+    actions.setSetting('pet', id);
+    actions.setSetting('accent', null); // let the pet's signature colour lead
+  };
+
+  return (
+    <View style={s.panel}>
+      <View style={s.topBar}>
+        <Dots n={9} i={7} theme={theme} />
+        <Pressable onPress={skip}><Text style={[s.skip, { color: theme.text3 }]}>Skip</Text></Pressable>
+      </View>
+      <View style={[s.body, { justifyContent: 'center' }]}>
+        <Text style={[s.obKicker, { color: theme.text3 }]}>07 · <Text style={{ color: theme.accent }}>Your companion</Text></Text>
+        <Text style={[s.obTitle, { color: theme.text }]}>
+          Pick a little{'\n'}<Text style={{ fontStyle: 'italic' }}>companion.</Text>
+        </Text>
+
+        {/* hero — tap to make it react */}
+        <Pressable onPress={() => emitPetReaction('complete')} style={{ alignItems: 'center', marginTop: 16 }}>
+          <View style={[s.companionHalo, { backgroundColor: theme.accentSoft }]}>
+            <Pet petId={current} theme={theme} size={130} reactive />
+          </View>
+          <Text style={{ fontFamily: FONT.serifItalic || FONT.serif, fontSize: 15, color: theme.text3, marginTop: 6 }}>
+            tap to say hi
+          </Text>
+        </Pressable>
+
+        {/* picker */}
+        <View style={s.petRow}>
+          {PETS.map((p) => {
+            const on = p.id === current;
+            const pt = makeTheme(theme.mode, null, p.id);
+            return (
+              <Pressable
+                key={p.id}
+                onPress={() => pick(p.id)}
+                style={[
+                  s.petChip,
+                  { backgroundColor: on ? pt.accentSoft : theme.surface, borderColor: on ? pt.accent : theme.hairline2, borderWidth: on ? 2 : 1 },
+                ]}
+              >
+                <Pet petId={p.id} theme={pt} size={36} reactive={false} />
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Text style={[s.obLede, { color: theme.text2, marginTop: 16, fontSize: 15 }]}>
+          {pet.name} is {pet.tagline.toLowerCase()} — it reacts as you add and finish tasks, and re-paints the whole app. Swap anytime in Settings.
+        </Text>
+      </View>
+      <CTA label="Continue" theme={theme} onPress={next} />
+    </View>
+  );
+}
+
 /* ---- 0 · WELCOME ---- */
 function WelcomePanel({ theme, s, next, finish }) {
   return (
@@ -656,7 +830,7 @@ function WelcomePanel({ theme, s, next, finish }) {
       {!FREE_FOR_ALL && (
         <CTA label="I already own HiTasky" ghost theme={theme} onPress={() => finish(true)} />
       )}
-      <Dots n={8} i={0} theme={theme} />
+      <Dots n={9} i={0} theme={theme} />
     </View>
   );
 }
@@ -666,7 +840,7 @@ function PrivatePanel({ theme, s, next, skip }) {
   return (
     <View style={s.panel}>
       <View style={s.topBar}>
-        <Dots n={8} i={1} theme={theme} />
+        <Dots n={9} i={1} theme={theme} />
         <Pressable onPress={skip}><Text style={[s.skip, { color: theme.text3 }]}>Skip</Text></Pressable>
       </View>
       <View style={[s.body, { justifyContent: 'center' }]}>
@@ -685,19 +859,88 @@ function PrivatePanel({ theme, s, next, skip }) {
 
 /* ---- 2 · THE FEEL ---- */
 function FeelPanel({ theme, s, next, skip, active }) {
-  const [hap, setHap] = useState(false);
+  const ringFill = useRef(new Animated.Value(0)).current;
+  const strikeWidth = useRef(new Animated.Value(0)).current;
+  const petPop = useRef(new Animated.Value(0)).current;
+  const cardEntrance = useRef(new Animated.Value(0)).current;
+  const cardGlow = useRef(new Animated.Value(0)).current;
+  const particleBurst = useRef(new Animated.Value(0)).current;
+  const [showPet, setShowPet] = useState(false);
+
   useEffect(() => {
-    if (active) {
-      setHap(false);
-      const t = setTimeout(() => setHap(true), 350);
-      return () => clearTimeout(t);
-    }
+    if (!active) return;
+    // Reset all
+    ringFill.setValue(0);
+    strikeWidth.setValue(0);
+    petPop.setValue(0);
+    cardEntrance.setValue(0);
+    cardGlow.setValue(0);
+    particleBurst.setValue(0);
+    setShowPet(false);
+
+    // Sequence: card enters → ring fills → strike grows → pet pops → particles
+    Animated.timing(cardEntrance, { toValue: 1, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+
+    const t1 = setTimeout(() => {
+      // Ring fills
+      Animated.timing(ringFill, { toValue: 1, duration: 400, easing: Easing.bezier(0.16, 1, 0.3, 1), useNativeDriver: false }).start();
+      // Glow pulse
+      Animated.sequence([
+        Animated.timing(cardGlow, { toValue: 1, duration: 300, useNativeDriver: false }),
+        Animated.timing(cardGlow, { toValue: 0.3, duration: 600, useNativeDriver: false }),
+      ]).start();
+    }, 900);
+
+    const t2 = setTimeout(() => {
+      Animated.timing(strikeWidth, { toValue: 1, duration: 500, easing: Easing.bezier(0.25, 1, 0.5, 1), useNativeDriver: false }).start();
+    }, 1200);
+
+    const t3 = setTimeout(() => {
+      setShowPet(true);
+      Animated.spring(petPop, { toValue: 1, friction: 5, tension: 180, useNativeDriver: true }).start();
+      Animated.timing(particleBurst, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+    }, 1800);
+
+    // Loop: reset after 4s and replay
+    const loop = setTimeout(() => {
+      ringFill.setValue(0);
+      strikeWidth.setValue(0);
+      petPop.setValue(0);
+      cardGlow.setValue(0);
+      particleBurst.setValue(0);
+      setShowPet(false);
+      // Re-trigger
+      Animated.timing(ringFill, { toValue: 1, duration: 400, easing: Easing.bezier(0.16, 1, 0.3, 1), useNativeDriver: false }).start();
+      Animated.sequence([
+        Animated.timing(cardGlow, { toValue: 1, duration: 300, useNativeDriver: false }),
+        Animated.timing(cardGlow, { toValue: 0.3, duration: 600, useNativeDriver: false }),
+      ]).start();
+      setTimeout(() => {
+        Animated.timing(strikeWidth, { toValue: 1, duration: 500, easing: Easing.bezier(0.25, 1, 0.5, 1), useNativeDriver: false }).start();
+      }, 300);
+      setTimeout(() => {
+        setShowPet(true);
+        Animated.spring(petPop, { toValue: 1, friction: 5, tension: 180, useNativeDriver: true }).start();
+        Animated.timing(particleBurst, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+      }, 900);
+    }, 5000);
+
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(loop); };
   }, [active]);
+
+  const ringBg = ringFill.interpolate({ inputRange: [0, 1], outputRange: ['transparent', theme.accent] });
+  const ringBorder = ringFill.interpolate({ inputRange: [0, 1], outputRange: [theme.text4, theme.accent] });
+  const tickOp = ringFill.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0, 1] });
+  const glowBorder = cardGlow.interpolate({ inputRange: [0, 1], outputRange: [theme.hairline2, theme.accent] });
+  const glowShadowOp = cardGlow.interpolate({ inputRange: [0, 1], outputRange: [0.12, 0.5] });
+
+  // Particle emojis
+  const particles = ['✨', '🪷', '🌿', '⭐'];
 
   return (
     <View style={s.panel}>
       <View style={s.topBar}>
-        <Dots n={8} i={2} theme={theme} />
+        <Dots n={9} i={2} theme={theme} />
         <Pressable onPress={skip}><Text style={[s.skip, { color: theme.text3 }]}>Skip</Text></Pressable>
       </View>
       <View style={[s.body, { justifyContent: 'center' }]}>
@@ -706,30 +949,83 @@ function FeelPanel({ theme, s, next, skip, active }) {
           Finishing,{'\n'}made <Text style={{ fontStyle: 'italic' }}>tactile.</Text>
         </Text>
 
-        {/* Frozen struck card */}
-        <View style={[s.demoCard, { backgroundColor: theme.surface, shadowColor: '#000' }]}>
-          <View style={[s.demoRing, { backgroundColor: theme.accent, borderColor: theme.accent }]}>
-            <Icon.tick size={15} color={theme.onAccent} />
-          </View>
+        {/* Animated task card demo */}
+        <Animated.View style={[s.demoCard, {
+          backgroundColor: theme.surface,
+          shadowColor: theme.accent,
+          borderWidth: 2,
+          borderColor: glowBorder,
+          shadowOpacity: glowShadowOp,
+          shadowRadius: 24,
+          opacity: cardEntrance,
+          transform: [
+            { translateY: cardEntrance.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) },
+            { scale: cardEntrance.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) },
+          ],
+        }]}>
+          {/* Animated ring */}
+          <Animated.View style={[s.demoRing, { backgroundColor: ringBg, borderColor: ringBorder }]}>
+            <Animated.View style={{ opacity: tickOp }}>
+              <Icon.tick size={15} color={theme.onAccent} />
+            </Animated.View>
+          </Animated.View>
           <View style={{ flex: 1 }}>
             <View>
-              <Text style={[s.demoTitle, { color: theme.text3, fontFamily: FONT.serifItalic || FONT.serif }]}>Reply to Mara</Text>
-              <View style={[s.demoStrike, { backgroundColor: theme.accent }]} />
+              <Text style={[s.demoTitle, { color: theme.text, fontFamily: FONT.serif }]}>Reply to Mara</Text>
+              {/* Animated ink strikethrough */}
+              <Animated.View style={[s.demoStrike, {
+                backgroundColor: theme.accent,
+                width: strikeWidth.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+              }]} />
             </View>
-            <Text style={[s.demoMeta, { color: theme.text3 }]}>Inbox</Text>
+            <Text style={[s.demoMeta, { color: theme.text3 }]}>Today · Work</Text>
           </View>
-          {hap && (
-            <View style={[s.hapChip, { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}>
-              <Icon.hand size={14} color={theme.accent} />
-              <Text style={{ fontFamily: FONT.sansSemi, fontSize: 11, color: theme.accent, letterSpacing: 0.4 }}>
-                haptic · tick
-              </Text>
+
+          {/* Pet celebration */}
+          {showPet && (
+            <View style={{ position: 'absolute', right: 14, top: '50%', marginTop: -20 }}>
+              <Animated.View style={{ transform: [{ scale: petPop }] }}>
+                <Pet petId="zen" theme={theme} size={40} mood="complete" />
+              </Animated.View>
             </View>
           )}
+
+          {/* Particle burst */}
+          {particles.map((p, i) => {
+            const angle = (i / particles.length) * Math.PI * 2;
+            const dist = 35;
+            return (
+              <View key={i} style={{ position: 'absolute', left: 18, top: 16 }}>
+                <Animated.Text
+                  pointerEvents="none"
+                  style={{
+                    fontSize: 14,
+                    opacity: particleBurst.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 0] }),
+                    transform: [
+                      { translateX: particleBurst.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(angle) * dist] }) },
+                      { translateY: particleBurst.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(angle) * dist] }) },
+                      { scale: particleBurst.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.3, 1.2, 0.5] }) },
+                    ],
+                  }}
+                >{p}</Animated.Text>
+              </View>
+            );
+          })}
+        </Animated.View>
+
+        {/* Second hint card */}
+        <View style={[s.demoCard, { backgroundColor: theme.surface, shadowColor: '#000', marginTop: 12, paddingVertical: 14, opacity: 0.7 }]}>
+          <View style={[s.demoRing, { borderColor: theme.accent, borderWidth: 1.8 }]}>
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: theme.accent }} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.demoTitle, { color: theme.text, fontFamily: FONT.serif, fontSize: 16 }]}>Your next task surfaces</Text>
+            <Text style={[s.demoMeta, { color: theme.accent, fontSize: 11 }]}>Automatically</Text>
+          </View>
         </View>
 
-        <Text style={[s.obLede, { color: theme.text2, marginTop: 18 }]}>
-          Complete a task and HiTasky draws a line through it, like a fountain pen. A soft tick confirms it's done.
+        <Text style={[s.obLede, { color: theme.text2, marginTop: 18, fontSize: 16 }]}>
+          Complete a task and HiTasky draws an ink line through it. A soft haptic tick confirms it's done — <Text style={{ fontStyle: 'italic', color: theme.accent }}>satisfying every time.</Text>
         </Text>
       </View>
       <CTA label="Continue" theme={theme} onPress={next} />
@@ -742,7 +1038,7 @@ function RemindersPanel({ theme, s, next, skip }) {
   return (
     <View style={s.panel}>
       <View style={s.topBar}>
-        <Dots n={8} i={3} theme={theme} />
+        <Dots n={9} i={3} theme={theme} />
         <Pressable onPress={next}><Text style={[s.skip, { color: theme.text3 }]}>Skip</Text></Pressable>
       </View>
       <View style={[s.body, { justifyContent: 'center' }]}>
@@ -789,7 +1085,7 @@ function ThemePanel({ theme, s, next, skip, sel, setSel }) {
   return (
     <View style={s.panel}>
       <View style={s.topBar}>
-        <Dots n={8} i={4} theme={theme} />
+        <Dots n={9} i={4} theme={theme} />
         <Pressable onPress={skip}><Text style={[s.skip, { color: theme.text3 }]}>Skip</Text></Pressable>
       </View>
       <View style={[s.body, { justifyContent: 'center' }]}>
@@ -884,11 +1180,11 @@ function FreePanel({ theme, s, finish }) {
   return (
     <View style={s.panel}>
       <View style={s.topBar}>
-        <Dots n={8} i={7} theme={theme} />
+        <Dots n={9} i={8} theme={theme} />
         <View />
       </View>
       <View style={[s.body, { justifyContent: 'center' }]}>
-        <Text style={[s.obKicker, { color: theme.text3 }]}>07 · <Text style={{ color: theme.accent }}>All yours</Text></Text>
+        <Text style={[s.obKicker, { color: theme.text3 }]}>08 · <Text style={{ color: theme.accent }}>All yours</Text></Text>
         <Text style={[s.obTitle, { color: theme.text }]}>
           Everything,{'\n'}<Text style={{ fontStyle: 'italic' }}>unlocked.</Text>
         </Text>
@@ -923,11 +1219,11 @@ function PurchasePanel({ theme, s, finish }) {
   return (
     <View style={s.panel}>
       <View style={s.topBar}>
-        <Dots n={8} i={7} theme={theme} />
+        <Dots n={9} i={8} theme={theme} />
         <Pressable onPress={() => finish(true)}><Text style={[s.skip, { color: theme.text3 }]}>Restore</Text></Pressable>
       </View>
       <View style={[s.body, { justifyContent: 'center' }]}>
-        <Text style={[s.obKicker, { color: theme.text3 }]}>05 · <Text style={{ color: theme.accent }}>One price, once</Text></Text>
+        <Text style={[s.obKicker, { color: theme.text3 }]}>08 · <Text style={{ color: theme.accent }}>One price, once</Text></Text>
         <Text style={[s.obTitle, { color: theme.text }]}>
           Buy once.{'\n'}<Text style={{ fontStyle: 'italic' }}>Yours forever.</Text>
         </Text>
@@ -959,6 +1255,13 @@ function PurchasePanel({ theme, s, finish }) {
 function makeStyles(t) {
   return StyleSheet.create({
     root: { flex: 1 },
+    floatingLeaf: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      fontSize: 24,
+      zIndex: 1,
+    },
     panel: { flex: 1, paddingBottom: 26 },
     topBar: {
       height: 46,
@@ -1071,6 +1374,28 @@ function makeStyles(t) {
       height: 20,
       borderRadius: 6,
       borderWidth: 1.5,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    // companion panel
+    companionHalo: {
+      width: 168,
+      height: 168,
+      borderRadius: 84,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    petRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      justifyContent: 'center',
+      marginTop: 22,
+    },
+    petChip: {
+      width: 56,
+      height: 56,
+      borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
     },

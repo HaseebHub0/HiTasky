@@ -12,8 +12,8 @@ import { selectionFeedback } from '../lib/feedback.js';
 const TABS = [
   { id: 'today', label: 'Today', icon: Icon.today },
   { id: 'lists', label: 'Lists', icon: Icon.lists },
+  { id: 'notes', label: 'Notes', icon: Icon.book },
   { id: 'done', label: 'Journal', icon: Icon.doneTab },
-  { id: 'settings', label: 'Settings', icon: Icon.gear },
 ];
 
 function Tab({ tab, on, theme, settings, onPress }) {
@@ -50,11 +50,18 @@ function Tab({ tab, on, theme, settings, onPress }) {
 }
 
 export function BottomNav({ active, onChange, theme, settings, bottomInset = 0 }) {
+  // Hide navigation bar when settings screen is active (rendered as modal/back stack in header instead)
+  if (active === 'settings') return null;
+
   return (
     <View
       style={[
         styles.bar,
-        { backgroundColor: theme.bg, borderTopColor: theme.hairline, paddingBottom: 8 + bottomInset },
+        {
+          backgroundColor: theme.surface,
+          borderColor: theme.surface2,
+          bottom: 16 + bottomInset,
+        },
       ]}
     >
       {TABS.map((t) => (
@@ -75,11 +82,21 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingTop: 8,
-    paddingHorizontal: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 2,
+    position: 'absolute',
+    left: 18,
+    right: 18,
+    borderRadius: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: theme.mode === 'light' ? 0.08 : 0.25,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  tab: { flex: 1, alignItems: 'center', gap: 4, paddingTop: 8, paddingBottom: 6 },
+  tab: { flex: 1, alignItems: 'center', gap: 4, paddingTop: 4, paddingBottom: 4 },
   lbl: { fontSize: 10.5, fontFamily: FONT.sansSemi, letterSpacing: 0.4 },
   dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
 });

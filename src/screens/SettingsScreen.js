@@ -7,13 +7,16 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useStore, exportData, importData } from '../lib/store.js';
 import { useAppTheme } from '../lib/useTheme.js';
 import { Icon } from '../components/icons.js';
+import { PetCompanion } from '../components/PetCompanion.js';
+import { Pet } from '../components/Pet.js';
 import { Kicker, Display, Switch, Seg, ConfirmDialog } from '../components/ui.js';
 import { FeedbackDialog } from '../components/FeedbackDialog.js';
-import { FONT, ACCENTS } from '../theme.js';
+import { FONT, ACCENTS, softOf, makeTheme } from '../theme.js';
+import { PETS, getPet } from '../lib/pets.js';
 import * as Updates from 'expo-updates';
 
 
-export function SettingsScreen({ onToast, onTriggerPaywall }) {
+export function SettingsScreen({ onToast, onTriggerPaywall, onBack }) {
   const { state, actions } = useStore();
   const theme = useAppTheme();
   const s = state.settings;
@@ -81,8 +84,19 @@ export function SettingsScreen({ onToast, onTriggerPaywall }) {
     >
       {/* Header */}
       <View style={st.header}>
-        <Kicker style={{ color: theme.text3, marginBottom: 10 }}>Settings</Kicker>
-        <Display style={{ color: theme.text }}>Yours to keep.</Display>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          {onBack && (
+            <Pressable style={st.backBtn} onPress={onBack}>
+              <Icon.chevLeft size={16} color={theme.text3} />
+              <Text style={[st.backText, { color: theme.text3 }]}>Back</Text>
+            </Pressable>
+          )}
+          <View />
+        </View>
+        <View style={{ marginTop: 12 }}>
+          <Kicker style={{ color: theme.text3, marginBottom: 6 }}>Settings</Kicker>
+          <Display style={{ color: theme.text }}>Yours to keep.</Display>
+        </View>
       </View>
 
       {/* ---- APPEARANCE ---- */}
@@ -143,6 +157,66 @@ export function SettingsScreen({ onToast, onTriggerPaywall }) {
               <Text style={[st.rowSub, { color: theme.text3 }]}>Editorial Newsreader on task titles</Text>
             </View>
             <Switch value={!s.sansTitles} onChange={() => set('sansTitles', !s.sansTitles)} theme={theme} />
+          </View>
+        </View>
+      </View>
+
+      {/* ---- COMPANION ---- */}
+      <View style={st.group}>
+        <Kicker style={{ color: theme.text3, marginBottom: 4 }}>Companion</Kicker>
+        <View style={[st.card, { backgroundColor: theme.surface }]}>
+          {/* Active pet preview */}
+          <View style={{ alignItems: 'center', paddingVertical: 16 }}>
+            <PetCompanion petId={s.pet} size={56} showEmote={false} />
+            <Text style={{ fontFamily: FONT.sansSemi, fontSize: 14, color: theme.text, marginTop: 8 }}>
+              {getPet(s.pet).name} the {getPet(s.pet).species}
+            </Text>
+            <Text style={{ fontFamily: FONT.sansMedium, fontSize: 12, color: theme.text3, marginTop: 2 }}>
+              {getPet(s.pet).tagline}
+            </Text>
+          </View>
+
+          <View style={[st.divider, { backgroundColor: theme.hairline }]} />
+
+          {/* Pet grid */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingVertical: 14, justifyContent: 'center' }}>
+            {PETS.map((pet) => {
+              const isSelected = s.pet === pet.id;
+              const isLocked = !pet.free && !s.purchased;
+              return (
+                <Pressable
+                  key={pet.id}
+                  onPress={() => {
+                    if (isLocked) {
+                      onTriggerPaywall();
+                    } else {
+                      set('pet', pet.id);
+                      // Auto-update accent to match pet's signature colour
+                      set('accent', null);
+                    }
+                  }}
+                  style={[
+                    {
+                      width: 60,
+                      height: 60,
+                      borderRadius: 18,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: isSelected ? softOf(pet.accent[theme.mode], 0.2) : theme.surface2,
+                      borderWidth: isSelected ? 2 : 0,
+                      borderColor: isSelected ? pet.accent[theme.mode] : 'transparent',
+                    },
+                  ]}
+                >
+                  <Pet petId={pet.id} theme={makeTheme(theme.mode, null, pet.id)} size={42} reactive={false} />
+                  {isLocked && (
+                    <View style={{ position: 'absolute', bottom: 2, right: 2 }}>
+                      <Icon.lock size={11} color={theme.text3} />
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
           </View>
         </View>
       </View>
@@ -278,7 +352,7 @@ export function SettingsScreen({ onToast, onTriggerPaywall }) {
         <Icon.chev size={16} color={theme.text4} />
       </Pressable>
 
-      <View style={{ height: 100 }} />
+      <View style={{ height: 140 }} />
 
       {/* Confirm dialogs */}
       <ConfirmDialog
@@ -346,7 +420,33 @@ const actionStyles = StyleSheet.create({
 function makeStyles(t) {
   return StyleSheet.create({
     scroll: { paddingHorizontal: 22 },
-    header: { paddingTop: 18, paddingBottom: 6 },
+    header: {
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderRadius: 24,
+      borderWidth: 1.5,
+      borderColor: t.mode === 'light' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(255, 255, 255, 0.16)',
+      backgroundColor: t.mode === 'light' ? 'rgba(251, 246, 236, 0.75)' : 'rgba(24, 39, 30, 0.6)',
+      marginTop: 16,
+      marginBottom: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
+      elevation: 4,
+    },
+    backBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: t.hairline2,
+      backgroundColor: t.surface2,
+    },
+    backText: { fontFamily: FONT.sansSemi, fontSize: 14 },
     group: { marginTop: 26 },
     card: {
       borderRadius: t.radius,

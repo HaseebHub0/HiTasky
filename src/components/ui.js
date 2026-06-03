@@ -6,6 +6,7 @@ import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native
 import { Icon } from './icons.js';
 import { Illustration } from './illustrations.js';
 import { Wordmark } from './Wordmark.js';
+import { Pet } from './Pet.js';
 import { FONT } from '../theme.js';
 
 /* ---------- typography ---------- */
@@ -149,6 +150,15 @@ export function ConfirmDialog({ open, title, body, confirmLabel = 'Confirm', dan
 
 /* ---------- Paywall dialog ---------- */
 export function PaywallDialog({ open, onPurchase, onRestore, onCancel, theme }) {
+  const features = [
+    { label: 'Unlimited tasks & lists', free: false, pro: true },
+    { label: 'Unlimited recurring tasks', free: false, pro: true },
+    { label: 'Custom accent themes', free: false, pro: true },
+    { label: 'All pet companions', free: false, pro: true },
+    { label: 'Local backup & restore', free: false, pro: true },
+    { label: 'No ads, ever', free: false, pro: true },
+  ];
+
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onCancel}>
       <Pressable style={[styles.scrim, { backgroundColor: theme.scrim }]} onPress={onCancel} />
@@ -161,13 +171,23 @@ export function PaywallDialog({ open, onPurchase, onRestore, onCancel, theme }) 
             Unlock HiTasky Premium
           </Text>
           <Text style={{ fontFamily: FONT.sans, fontSize: 14, lineHeight: 21, color: theme.text2, marginTop: 12, textAlign: 'center' }}>
-            Get lifetime access to advanced features: daily resets, customized accents, local backups, and unlimited tasks/lists.
+            One payment. Yours forever. No subscription.
           </Text>
           
-          <View style={{ marginVertical: 18, alignItems: 'center' }}>
+          {/* Feature list */}
+          <View style={{ marginTop: 16, marginBottom: 6 }}>
+            {features.map((f, i) => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 }}>
+                <Icon.tick size={14} color={theme.accent} />
+                <Text style={{ fontFamily: FONT.sansMedium, fontSize: 13.5, color: theme.text, flex: 1 }}>{f.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={{ marginVertical: 14, alignItems: 'center' }}>
             <Text style={{ fontFamily: FONT.serifMedium, fontSize: 32, color: theme.accent }}>$19</Text>
             <Text style={{ fontFamily: FONT.sansSemi, fontSize: 12, color: theme.text3, textTransform: 'uppercase', letterSpacing: 1, marginTop: 4 }}>
-              One-time payment
+              One-time payment · Lifetime access
             </Text>
           </View>
           
@@ -241,13 +261,19 @@ const ILLUSTRATION_FOR = {
   star: 'page',
 };
 
-export function EmptyState({ title, subtitle, footer, icon = 'lists', illustration, theme }) {
+export function EmptyState({ title, subtitle, footer, icon = 'lists', illustration, theme, petId }) {
   const scene = illustration || ILLUSTRATION_FOR[icon] || 'calm';
 
   return (
     <View style={emptyStyles.container}>
       <View style={emptyStyles.art}>
-        <Illustration name={scene} theme={theme} />
+        {petId ? (
+          <View style={{ alignItems: 'center' }}>
+            <Pet petId={petId} theme={theme} size={90} mood="rest" />
+          </View>
+        ) : (
+          <Illustration name={scene} theme={theme} />
+        )}
       </View>
       <Text style={[emptyStyles.title, { color: theme.text }]}>
         {title}

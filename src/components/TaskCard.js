@@ -1,14 +1,11 @@
-// ============================================================
-// TaskCard — the heart of HiTasky on mobile.
-// Completing fires the Completion Animation: the ring fills,
-// the card scales down, fades out, and slides down.
-// ============================================================
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon } from './icons.js';
+import { Pet } from './Pet.js';
 import { FONT } from '../theme.js';
 import { completionFeedback } from '../lib/feedback.js';
 import { dueLabel as fmtDue, isOverdue, completedLabel, recurringLabel } from '../lib/date.js';
+import { emitPetReaction } from '../lib/pets.js';
 
 export function TaskCard({
   task,
@@ -26,59 +23,97 @@ export function TaskCard({
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardScale = useRef(new Animated.Value(1)).current;
   const cardTranslateY = useRef(new Animated.Value(0)).current;
+  const borderAnim = useRef(new Animated.Value(0)).current;
   const [phase, setPhase] = useState(null);
+  const [petAnimation, setPetAnimation] = useState(null); // 'add' | 'complete' | null
 
   const ink = settings?.inkStrike;
   const sans = settings?.sansTitles;
   const done = task.isCompleted;
 
+  // Mount effect to show 'add' pet animation for 1.5s if task was created in the last 4 seconds
+  useEffect(() => {
+    const diff = Date.now() - new Date(task.createdAt).getTime();
+    if (diff > 0 && diff < 4000) {
+      setPetAnimation('add');
+      const timer = setTimeout(() => setPetAnimation(null), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Animate border glow and pulse card scale on pet animation
+  useEffect(() => {
+    if (petAnimation) {
+      // Glow overlay opacity: fade in (200ms), stay, fade out (200ms)
+      Animated.sequence([
+        Animated.timing(borderAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(borderAnim, { toValue: 1, duration: 1100, useNativeDriver: true }),
+        Animated.timing(borderAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start();
+
+      // Mild card scale pulse
+      Animated.sequence([
+        Animated.spring(cardScale, { toValue: 1.025, friction: 3, tension: 150, useNativeDriver: true }),
+        Animated.spring(cardScale, { toValue: 1.0, friction: 3, tension: 150, useNativeDriver: true }),
+      ]).start();
+    } else {
+      borderAnim.setValue(0);
+    }
+  }, [petAnimation]);
+
   const complete = () => {
     if (phase) return;
     completionFeedback(settings);
+    emitPetReaction('complete');
+    
+    // Play complete pet animation inside the card for 1.5 seconds first
+    setPetAnimation('complete');
     setPhase('completing');
 
-    if (!ink) {
-      // Fast transition: check and quickly fade out
-      Animated.timing(progress, { toValue: 1, duration: 150, useNativeDriver: false }).start();
-      Animated.timing(cardOpacity, { toValue: 0, duration: 150, useNativeDriver: true }).start();
-      setTimeout(() => onComplete && onComplete(task), 160);
-      return;
-    }
-
-    // Premium sequence:
-    // 1. Tick/fill the checkbox ring immediately
-    Animated.timing(progress, {
-      toValue: 1,
-      duration: 250,
-      easing: Easing.bezier(0.16, 1, 0.3, 1), // easeOutExpo
-      useNativeDriver: false,
-    }).start();
-
-    // 2. Smoothly fade, scale down, and slide the card out
     setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(cardOpacity, {
-          toValue: 0,
-          duration: 320,
-          easing: Easing.bezier(0.25, 1, 0.5, 1), // easeOutQuart
-          useNativeDriver: true,
-        }),
-        Animated.timing(cardScale, {
-          toValue: 0.95,
-          duration: 320,
-          easing: Easing.bezier(0.25, 1, 0.5, 1),
-          useNativeDriver: true,
-        }),
-        Animated.timing(cardTranslateY, {
-          toValue: 35,
-          duration: 320,
-          easing: Easing.bezier(0.25, 1, 0.5, 1),
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        onComplete && onComplete(task);
-      });
-    }, 220); // Delay so the user feels the checkbox fill action
+      if (!ink) {
+        // Fast transition: check and quickly fade out
+        Animated.timing(progress, { toValue: 1, duration: 150, useNativeDriver: false }).start();
+        Animated.timing(cardOpacity, { toValue: 0, duration: 150, useNativeDriver: true }).start();
+        setTimeout(() => onComplete && onComplete(task), 160);
+        return;
+      }
+
+      // Premium sequence:
+      // 1. Tick/fill the checkbox ring immediately
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: 250,
+        easing: Easing.bezier(0.16, 1, 0.3, 1), // easeOutExpo
+        useNativeDriver: false,
+      }).start();
+
+      // 2. Smoothly fade, scale down, and slide the card out
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(cardOpacity, {
+            toValue: 0,
+            duration: 320,
+            easing: Easing.bezier(0.25, 1, 0.5, 1), // easeOutQuart
+            useNativeDriver: true,
+          }),
+          Animated.timing(cardScale, {
+            toValue: 0.95,
+            duration: 320,
+            easing: Easing.bezier(0.25, 1, 0.5, 1),
+            useNativeDriver: true,
+          }),
+          Animated.timing(cardTranslateY, {
+            toValue: 35,
+            duration: 320,
+            easing: Easing.bezier(0.25, 1, 0.5, 1),
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          onComplete && onComplete(task);
+        });
+      }, 220); // Delay so the user feels the checkbox fill action
+    }, 1500); // 1.5s delay to let the pet animation play out
   };
 
   const s = makeStyles(theme);
@@ -117,6 +152,9 @@ export function TaskCard({
 
   // ---- active variant ----
   const meta = [];
+  // surface a meaningful priority (Medium is the default — keep it quiet)
+  if (task.priority === 'high') meta.push({ t: 'High', color: '#E5544B' });
+  else if (task.priority === 'low') meta.push({ t: 'Low', color: theme.text3 });
   if (listName) meta.push({ t: listName });
   if (recurringLabel(task.recurring)) {
     meta.push({ t: recurringLabel(task.recurring), accent: true });
@@ -157,6 +195,24 @@ export function TaskCard({
         },
       ]}
     >
+      {/* Animated border glow overlay */}
+      {petAnimation && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            borderRadius: theme.radius,
+            borderWidth: 2,
+            borderColor: theme.accent,
+            opacity: borderAnim,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+
       <Pressable onPress={complete} hitSlop={8} style={s.ringWrap}>
         <Animated.View
           style={[
@@ -191,7 +247,7 @@ export function TaskCard({
             {meta.map((m, i) => (
               <React.Fragment key={i}>
                 {i > 0 && <View style={s.dot} />}
-                <Text style={[s.meta, m.accent && { color: theme.accent }]}>{m.t}</Text>
+                <Text style={[s.meta, m.accent && { color: theme.accent }, m.color && { color: m.color }]}>{m.t}</Text>
               </React.Fragment>
             ))}
           </View>
@@ -202,6 +258,14 @@ export function TaskCard({
         <Pressable onLongPress={drag} delayLongPress={180} hitSlop={8} style={s.handle}>
           <Icon.grip color={theme.text4} />
         </Pressable>
+      )}
+
+      {petAnimation && (
+        <View style={[s.cardPetWrap, { right: drag ? 38 : 16 }]}>
+          <Animated.View style={{ transform: [{ scale: borderAnim.interpolate({ inputRange: [0, 0.2, 0.8, 1], outputRange: [0, 1.15, 1.15, 0] }) }] }}>
+            <Pet petId={settings.pet || 'zen'} theme={theme} size={56} mood={petAnimation} />
+          </Animated.View>
+        </View>
       )}
     </Animated.View>
   );
@@ -262,5 +326,11 @@ function makeStyles(t) {
     meta: { fontSize: 12.5, fontFamily: FONT.sansMedium, color: t.text3 },
     dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: t.text4 },
     handle: { paddingLeft: 6, paddingTop: 4, alignSelf: 'center' },
+    cardPetWrap: {
+      position: 'absolute',
+      top: '50%',
+      marginTop: -28,
+      zIndex: 10,
+    },
   });
 }

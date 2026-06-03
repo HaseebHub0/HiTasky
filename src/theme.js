@@ -4,6 +4,8 @@
 // Mirrors the web design system (nib.css).
 // ============================================================
 
+import { getPet, DEFAULT_PET } from './lib/pets.js';
+
 export const ACCENTS = ['#E58A4B', '#E0A24A', '#C25A4E', '#7E8C5A', '#5A7E8C', '#9A6A8C'];
 
 const DARK = {
@@ -38,16 +40,24 @@ const LIGHT = {
   accentSoft: 'rgba(194,106,47,0.15)',
 };
 
-// build a full palette for a theme + chosen accent
-export function makeTheme(mode, accent = '#E58A4B') {
+// build a full palette for a theme + chosen pet (+ optional manual accent)
+//
+// The active pet drives both the accent and the background "mood" (a few
+// tinted surface tokens). Text tokens always come from the base theme so
+// contrast stays safe. A non-null `accent` is a manual override that wins
+// over the pet's signature colour.
+export function makeTheme(mode, accent = null, petId = DEFAULT_PET) {
   const base = mode === 'light' ? LIGHT : DARK;
-  // on paper, the ember is deepened for contrast unless a custom accent is set
-  const acc = accent || (mode === 'light' ? '#C26A2F' : '#E58A4B');
+  const pet = getPet(petId);
+  const petPal = (mode === 'light' ? pet.light : pet.dark) || {};
+  const acc = accent || pet.accent[mode === 'light' ? 'light' : 'dark'] || (mode === 'light' ? '#C26A2F' : '#E58A4B');
   return {
     mode,
     ...base,
+    ...petPal,
     accent: acc,
-    accentSoft: softOf(acc, base === LIGHT ? 0.15 : 0.16),
+    accentSoft: softOf(acc, mode === 'light' ? 0.15 : 0.16),
+    petId,
     radius: 20,
   };
 }
