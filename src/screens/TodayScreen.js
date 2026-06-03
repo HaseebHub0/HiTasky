@@ -21,11 +21,8 @@ import { getPet } from '../lib/pets.js';
 import { Kicker, Display, H2, Meta, EmptyState } from '../components/ui.js';
 import { FONT } from '../theme.js';
 
-// Header — pet-change button (logo) + "Hi Tasky" wordmark on the left,
-// settings button on the right. Styled like a glassy droplet.
 function TodayHeader({ theme, settings, s, onOpenPets, onOpenSettings }) {
   const currentPet = settings?.pet || 'zen';
-  const pet = getPet(currentPet);
 
   return (
     <View style={s.header}>
@@ -37,7 +34,7 @@ function TodayHeader({ theme, settings, s, onOpenPets, onOpenSettings }) {
           accessibilityRole="button"
           accessibilityLabel="Open pet companion selector"
         >
-          <Text style={s.petEmoji}>{pet.emoji}</Text>
+          <Pet petId={currentPet} theme={theme} size={26} reactive={false} still={true} />
         </Pressable>
         <Wordmark theme={theme} size={22} />
       </View>

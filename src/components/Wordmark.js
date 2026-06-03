@@ -21,10 +21,26 @@ export function Wordmark({ theme, size = 22, style }) {
     <View style={[styles.row, style]}>
       <Text
         allowFontScaling={false}
-        style={[styles.word, { fontSize: size, lineHeight: Math.round(size * 1.14) }]}
+        style={{
+          fontFamily: FONT.serifItalic,
+          color: theme.accent,
+          fontSize: size,
+          letterSpacing: -0.2,
+        }}
       >
-        <Text style={{ fontFamily: FONT.serifItalic, color: theme.accent }}>Hi</Text>
-        <Text style={{ fontFamily: FONT.serifMedium || FONT.serif, color: theme.text }}> Tasky</Text>
+        Hi
+      </Text>
+      <Text
+        allowFontScaling={false}
+        style={{
+          fontFamily: FONT.serifMedium || FONT.serif,
+          color: theme.text,
+          fontSize: size,
+          letterSpacing: -0.2,
+          marginLeft: 4,
+        }}
+      >
+        Tasky
       </Text>
     </View>
   );
@@ -32,5 +48,4 @@ export function Wordmark({ theme, size = 22, style }) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
-  word: { letterSpacing: -0.2 },
 });

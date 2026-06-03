@@ -41,6 +41,18 @@ function seed() {
   const lFitness = uid('l');
   const lReading = uid('l');
   const lTravel = uid('l');
+  const lFinance = uid('l');
+  const lProjects = uid('l');
+  const lHealth = uid('l');
+  const lGarden = uid('l');
+  const lCooking = uid('l');
+  const lIdeas = uid('l');
+  const lCreative = uid('l');
+  const lArchive = uid('l');
+  const lHustle = uid('l');
+  const lFamily = uid('l');
+  const lReminders = uid('l');
+  const lBucket = uid('l');
 
   const lists = [
     { id: lWork, name: 'Work', accent: '#E58A4B', icon: 'briefcase', sortOrder: 0, createdAt: nowIso() },
@@ -51,6 +63,18 @@ function seed() {
     { id: lFitness, name: 'Fitness', accent: '#6FB890', icon: 'star', sortOrder: 5, createdAt: nowIso() },
     { id: lReading, name: 'Reading', accent: '#9A6A8C', icon: 'book', sortOrder: 6, createdAt: nowIso() },
     { id: lTravel, name: 'Travel', accent: '#7FA8D6', icon: 'star', sortOrder: 7, createdAt: nowIso() },
+    { id: lFinance, name: 'Finance', accent: '#E58A4B', icon: 'list', sortOrder: 8, createdAt: nowIso() },
+    { id: lProjects, name: 'Projects', accent: '#E0A24A', icon: 'briefcase', sortOrder: 9, createdAt: nowIso() },
+    { id: lHealth, name: 'Health', accent: '#C25A4E', icon: 'heart', sortOrder: 10, createdAt: nowIso() },
+    { id: lGarden, name: 'Garden', accent: '#7E8C5A', icon: 'star', sortOrder: 11, createdAt: nowIso() },
+    { id: lCooking, name: 'Cooking', accent: '#5A7E8C', icon: 'list', sortOrder: 12, createdAt: nowIso() },
+    { id: lIdeas, name: 'Ideas', accent: '#9A6A8C', icon: 'briefcase', sortOrder: 13, createdAt: nowIso() },
+    { id: lCreative, name: 'Creative', accent: '#E58A4B', icon: 'star', sortOrder: 14, createdAt: nowIso() },
+    { id: lArchive, name: 'Archive', accent: '#E0A24A', icon: 'book', sortOrder: 15, createdAt: nowIso() },
+    { id: lHustle, name: 'Side Hustle', accent: '#C25A4E', icon: 'briefcase', sortOrder: 16, createdAt: nowIso() },
+    { id: lFamily, name: 'Family', accent: '#7E8C5A', icon: 'heart', sortOrder: 17, createdAt: nowIso() },
+    { id: lReminders, name: 'Reminders', accent: '#5A7E8C', icon: 'list', sortOrder: 18, createdAt: nowIso() },
+    { id: lBucket, name: 'Bucket List', accent: '#9A6A8C', icon: 'star', sortOrder: 19, createdAt: nowIso() },
   ];
 
   // Helper for relative dates
@@ -68,27 +92,46 @@ function seed() {
     { id: uid('t'), title: 'Call the dentist for appointment', note: '', listId: lPersonal, dueAt: nowIso(), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 5, createdAt: nowIso() },
     { id: uid('t'), title: 'Water the plants', note: '', listId: lHome, dueAt: nowIso(), reminderAt: null, recurring: 'daily', priority: 'low', isCompleted: false, completedAt: null, sortOrder: 6, createdAt: nowIso() },
     { id: uid('t'), title: 'Read 30 pages of Atomic Habits', note: 'Chapter on identity-based habits', listId: lReading, dueAt: nowIso(), reminderAt: null, recurring: null, priority: 'medium', isCompleted: false, completedAt: null, sortOrder: 7, createdAt: nowIso() },
+    { id: uid('t'), title: 'Review monthly budget spreadsheet', note: 'Categorize expenses', listId: lFinance, dueAt: nowIso(), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 8, createdAt: nowIso() },
+    { id: uid('t'), title: 'Write project proposal draft', note: 'Include roadmap & estimates', listId: lProjects, dueAt: nowIso(), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 9, createdAt: nowIso() },
+    { id: uid('t'), title: 'Take daily vitamins & stretch', note: '10 min full body mobility', listId: lHealth, dueAt: nowIso(), reminderAt: null, recurring: 'daily', priority: 'medium', isCompleted: false, completedAt: null, sortOrder: 10, createdAt: nowIso() },
+    
     // Overdue tasks
-    { id: uid('t'), title: 'Submit expense report', note: 'Q2 receipts', listId: lWork, dueAt: daysAgo(2), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 8, createdAt: daysAgo(5) },
-    { id: uid('t'), title: 'Fix the leaking kitchen faucet', note: 'Call plumber if needed', listId: lHome, dueAt: daysAgo(1), reminderAt: null, recurring: null, priority: 'medium', isCompleted: false, completedAt: null, sortOrder: 9, createdAt: daysAgo(3) },
+    { id: uid('t'), title: 'Submit expense report', note: 'Q2 receipts', listId: lWork, dueAt: daysAgo(2), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 11, createdAt: daysAgo(5) },
+    { id: uid('t'), title: 'Fix the leaking kitchen faucet', note: 'Call plumber if needed', listId: lHome, dueAt: daysAgo(1), reminderAt: null, recurring: null, priority: 'medium', isCompleted: false, completedAt: null, sortOrder: 12, createdAt: daysAgo(3) },
+    { id: uid('t'), title: 'Pay monthly utility credit card', note: 'Auto-debit fallback check', listId: lFinance, dueAt: daysAgo(1), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 13, createdAt: daysAgo(2) },
+    
     // Scheduled (future) tasks
-    { id: uid('t'), title: 'Book flight to Istanbul', note: 'Check prices on Skyscanner', listId: lTravel, dueAt: daysFromNow(3), reminderAt: null, recurring: null, priority: 'medium', isCompleted: false, completedAt: null, sortOrder: 10, createdAt: nowIso() },
-    { id: uid('t'), title: 'Prepare presentation slides', note: 'Use the new brand template', listId: lWork, dueAt: daysFromNow(2), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 11, createdAt: nowIso() },
-    { id: uid('t'), title: 'Renew gym membership', note: '', listId: lFitness, dueAt: daysFromNow(5), reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 12, createdAt: nowIso() },
-    { id: uid('t'), title: 'Research Airbnb for Cappadocia', note: 'Cave hotels look amazing', listId: lTravel, dueAt: daysFromNow(7), reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 13, createdAt: nowIso() },
-    { id: uid('t'), title: 'Study for algorithms exam', note: 'Dynamic programming & graphs', listId: lStudy, dueAt: daysFromNow(4), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 14, createdAt: nowIso() },
+    { id: uid('t'), title: 'Book flight to Istanbul', note: 'Check prices on Skyscanner', listId: lTravel, dueAt: daysFromNow(3), reminderAt: null, recurring: null, priority: 'medium', isCompleted: false, completedAt: null, sortOrder: 14, createdAt: nowIso() },
+    { id: uid('t'), title: 'Prepare presentation slides', note: 'Use the new brand template', listId: lWork, dueAt: daysFromNow(2), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 15, createdAt: nowIso() },
+    { id: uid('t'), title: 'Renew gym membership', note: '', listId: lFitness, dueAt: daysFromNow(5), reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 16, createdAt: nowIso() },
+    { id: uid('t'), title: 'Research Airbnb for Cappadocia', note: 'Cave hotels look amazing', listId: lTravel, dueAt: daysFromNow(7), reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 17, createdAt: nowIso() },
+    { id: uid('t'), title: 'Study for algorithms exam', note: 'Dynamic programming & graphs', listId: lStudy, dueAt: daysFromNow(4), reminderAt: null, recurring: null, priority: 'high', isCompleted: false, completedAt: null, sortOrder: 18, createdAt: nowIso() },
+    { id: uid('t'), title: 'Repot the snake plant', note: 'Needs larger clay pot & soil', listId: lGarden, dueAt: daysFromNow(4), reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 19, createdAt: nowIso() },
+    { id: uid('t'), title: 'Schedule annual health checkup', note: 'Contact Dr. Miller office', listId: lHealth, dueAt: daysFromNow(6), reminderAt: null, recurring: null, priority: 'medium', isCompleted: false, completedAt: null, sortOrder: 20, createdAt: nowIso() },
+    { id: uid('t'), title: 'Register side-hustle domain name', note: 'Check .com availability', listId: lHustle, dueAt: daysFromNow(8), reminderAt: null, recurring: null, priority: 'medium', isCompleted: false, completedAt: null, sortOrder: 21, createdAt: nowIso() },
+    { id: uid('t'), title: 'Change home water filter', note: 'Under-sink system', listId: lReminders, dueAt: daysFromNow(9), reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 22, createdAt: nowIso() },
+    
     // Undated tasks
-    { id: uid('t'), title: 'Organize photo gallery', note: '', listId: lPersonal, dueAt: null, reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 15, createdAt: nowIso() },
-    { id: uid('t'), title: 'Learn basic Turkish phrases', note: 'Merhaba, Teşekkürler, Lütfen', listId: lTravel, dueAt: null, reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 16, createdAt: nowIso() },
+    { id: uid('t'), title: 'Organize photo gallery', note: '', listId: lPersonal, dueAt: null, reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 23, createdAt: nowIso() },
+    { id: uid('t'), title: 'Learn basic Turkish phrases', note: 'Merhaba, Teşekkürler, Lütfen', listId: lTravel, dueAt: null, reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 24, createdAt: nowIso() },
+    { id: uid('t'), title: 'Learn to surf', note: 'Look up schools in Portugal', listId: lBucket, dueAt: null, reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 25, createdAt: nowIso() },
+    { id: uid('t'), title: 'Visit Northern Lights in Norway', note: 'Plan for winter season', listId: lBucket, dueAt: null, reminderAt: null, recurring: null, priority: 'low', isCompleted: false, completedAt: null, sortOrder: 26, createdAt: nowIso() },
+    
     // Completed tasks (for Journal)
-    { id: uid('t'), title: 'Send the Fellows essay', note: '', listId: lWork, dueAt: daysAgo(0), reminderAt: null, recurring: null, priority: 'medium', isCompleted: true, completedAt: nowIso(), sortOrder: 17, createdAt: daysAgo(1) },
-    { id: uid('t'), title: 'Clean desk and organize cables', note: '', listId: lHome, dueAt: daysAgo(0), reminderAt: null, recurring: null, priority: 'low', isCompleted: true, completedAt: nowIso(), sortOrder: 18, createdAt: daysAgo(1) },
-    { id: uid('t'), title: 'Finish React Native tutorial', note: '', listId: lStudy, dueAt: daysAgo(1), reminderAt: null, recurring: null, priority: 'medium', isCompleted: true, completedAt: daysAgo(1), sortOrder: 19, createdAt: daysAgo(3) },
-    { id: uid('t'), title: 'Run 5K at the park', note: 'Personal best: 24:30', listId: lFitness, dueAt: daysAgo(1), reminderAt: null, recurring: null, priority: 'medium', isCompleted: true, completedAt: daysAgo(1), sortOrder: 20, createdAt: daysAgo(2) },
-    { id: uid('t'), title: 'Order birthday gift for Mom', note: 'She mentioned wanting a scarf', listId: lShopping, dueAt: daysAgo(2), reminderAt: null, recurring: null, priority: 'high', isCompleted: true, completedAt: daysAgo(2), sortOrder: 21, createdAt: daysAgo(4) },
-    { id: uid('t'), title: 'Backup phone photos', note: '', listId: lPersonal, dueAt: daysAgo(2), reminderAt: null, recurring: null, priority: 'low', isCompleted: true, completedAt: daysAgo(2), sortOrder: 22, createdAt: daysAgo(5) },
-    { id: uid('t'), title: 'Read chapter on mindfulness', note: '', listId: lReading, dueAt: daysAgo(3), reminderAt: null, recurring: null, priority: 'low', isCompleted: true, completedAt: daysAgo(3), sortOrder: 23, createdAt: daysAgo(6) },
-    { id: uid('t'), title: 'Weekly meal prep', note: 'Chicken, rice, veggies for 5 days', listId: lHome, dueAt: daysAgo(3), reminderAt: null, recurring: 'weekly', priority: 'medium', isCompleted: true, completedAt: daysAgo(3), sortOrder: 24, createdAt: daysAgo(7) },
+    { id: uid('t'), title: 'Send the Fellows essay', note: '', listId: lWork, dueAt: daysAgo(0), reminderAt: null, recurring: null, priority: 'medium', isCompleted: true, completedAt: nowIso(), sortOrder: 27, createdAt: daysAgo(1) },
+    { id: uid('t'), title: 'Clean desk and organize cables', note: '', listId: lHome, dueAt: daysAgo(0), reminderAt: null, recurring: null, priority: 'low', isCompleted: true, completedAt: nowIso(), sortOrder: 28, createdAt: daysAgo(1) },
+    { id: uid('t'), title: 'Finish React Native tutorial', note: '', listId: lStudy, dueAt: daysAgo(1), reminderAt: null, recurring: null, priority: 'medium', isCompleted: true, completedAt: daysAgo(1), sortOrder: 29, createdAt: daysAgo(3) },
+    { id: uid('t'), title: 'Run 5K at the park', note: 'Personal best: 24:30', listId: lFitness, dueAt: daysAgo(1), reminderAt: null, recurring: null, priority: 'medium', isCompleted: true, completedAt: daysAgo(1), sortOrder: 30, createdAt: daysAgo(2) },
+    { id: uid('t'), title: 'Order birthday gift for Mom', note: 'She mentioned wanting a scarf', listId: lShopping, dueAt: daysAgo(2), reminderAt: null, recurring: null, priority: 'high', isCompleted: true, completedAt: daysAgo(2), sortOrder: 31, createdAt: daysAgo(4) },
+    { id: uid('t'), title: 'Backup phone photos', note: '', listId: lPersonal, dueAt: daysAgo(2), reminderAt: null, recurring: null, priority: 'low', isCompleted: true, completedAt: daysAgo(2), sortOrder: 32, createdAt: daysAgo(5) },
+    { id: uid('t'), title: 'Read chapter on mindfulness', note: '', listId: lReading, dueAt: daysAgo(3), reminderAt: null, recurring: null, priority: 'low', isCompleted: true, completedAt: daysAgo(3), sortOrder: 33, createdAt: daysAgo(6) },
+    { id: uid('t'), title: 'Weekly meal prep', note: 'Chicken, rice, veggies for 5 days', listId: lHome, dueAt: daysAgo(3), reminderAt: null, recurring: 'weekly', priority: 'medium', isCompleted: true, completedAt: daysAgo(3), sortOrder: 34, createdAt: daysAgo(7) },
+    { id: uid('t'), title: 'Schedule client sync call', note: 'Review project milestones', listId: lProjects, dueAt: daysAgo(0), reminderAt: null, recurring: null, priority: 'medium', isCompleted: true, completedAt: nowIso(), sortOrder: 35, createdAt: daysAgo(2) },
+    { id: uid('t'), title: 'Fertilize the backyard roses', note: 'Use organic fish emulsion', listId: lGarden, dueAt: daysAgo(1), reminderAt: null, recurring: null, priority: 'low', isCompleted: true, completedAt: daysAgo(1), sortOrder: 36, createdAt: daysAgo(4) },
+    { id: uid('t'), title: 'Meal prep Sunday dinner', note: 'Sourdough & tomato soup', listId: lCooking, dueAt: daysAgo(0), reminderAt: null, recurring: null, priority: 'medium', isCompleted: true, completedAt: nowIso(), sortOrder: 37, createdAt: daysAgo(1) },
+    { id: uid('t'), title: 'Brainstorm side-project ideas', note: 'Draw 3 app wireframes', listId: lIdeas, dueAt: daysAgo(1), reminderAt: null, recurring: null, priority: 'low', isCompleted: true, completedAt: daysAgo(1), sortOrder: 38, createdAt: daysAgo(2) },
+    { id: uid('t'), title: 'Plan Sunday family brunch', note: 'Call sibling to coordinate', listId: lFamily, dueAt: daysAgo(0), reminderAt: null, recurring: null, priority: 'medium', isCompleted: true, completedAt: nowIso(), sortOrder: 39, createdAt: daysAgo(1) },
   ];
 
   const notes = [
@@ -100,6 +143,18 @@ function seed() {
     { id: uid('n'), title: 'Travel packing list', content: 'Passport, charger, adapter, sunscreen, comfortable shoes, camera, travel pillow', accent: '#7FA8D6', createdAt: nowIso(), updatedAt: nowIso() },
     { id: uid('n'), title: 'Quotes I love', content: '"The best time to plant a tree was 20 years ago. The second best time is now."\n"Be the change you wish to see in the world."', accent: '#E0A24A', createdAt: nowIso(), updatedAt: nowIso() },
     { id: uid('n'), title: 'Design inspiration', content: 'Glassmorphism cards\nNeumorphic buttons\nGradient mesh backgrounds\nMicro-animations on hover\nDynamic island UI pattern', accent: '#B57CA3', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Inspiring books list', content: 'Tao Te Ching\nZen Mind, Beginners Mind\nWabi-Sabi for Artists, Designers, Poets & Philosophers', accent: '#7E8C5A', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Shopping list for next week', content: 'Almonds, cold brew coffee, bananas, apples, chia seeds, tofu', accent: '#E58A4B', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Side hustle checklist', content: '1. Register domain\n2. Set up landing page\n3. Launch newsletter\n4. Write first post', accent: '#C25A4E', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Healthy recipes', content: 'Tofu stir fry with broccoli\nQuinoa salad with lemon vinaigrette\nOatmeal with berries and walnuts', accent: '#5A7E8C', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Gift ideas for holidays', content: 'Dad: Leather wallet\nMom: Wool scarf\nSister: Watercolor paint set', accent: '#9A6A8C', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Weekly reflection template', content: 'What went well?\nWhat challenges did I face?\nWhat am I grateful for?\nFocus for next week?', accent: '#E0A24A', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'UI redesign priorities', content: '1. Fluffy bubble tab bar\n2. Pulsing task card completions\n3. Dynamic onboarding screens', accent: '#B57CA3', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Turkish vocabulary practice', content: 'Merhaba (Hello)\nTesekkurler (Thanks)\nLutfen (Please)\nNasılsın (How are you?)', accent: '#7FA8D6', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Gardening tips & notes', content: 'Water snake plant only once in 2 weeks.\nRoses need full sun & fertilizer in spring.', accent: '#7E8C5A', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Piano pieces to learn', content: 'Gymnopedie No.1 — Erik Satie\nClair de Lune — Debussy\nPrelude in E Minor — Chopin', accent: '#E58A4B', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'Finance goals 2026', content: 'Save 30% of income monthly.\nInvest in low-cost index funds.\nBuild emergency fund for 6 months.', accent: '#C25A4E', createdAt: nowIso(), updatedAt: nowIso() },
+    { id: uid('n'), title: 'App deployment checklist', content: '1. Build production bundle\n2. Generate App Store assets\n3. Submit for beta testing\n4. Release to public', accent: '#5A7E8C', createdAt: nowIso(), updatedAt: nowIso() },
   ];
 
   return {

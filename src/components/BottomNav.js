@@ -61,6 +61,7 @@ export function BottomNav({ active, onChange, theme, settings, bottomInset = 0 }
           backgroundColor: theme.surface,
           borderColor: theme.surface2,
           bottom: 16 + bottomInset,
+          shadowOpacity: theme.mode === 'light' ? 0.08 : 0.25,
         },
       ]}
     >
@@ -92,7 +93,6 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: theme.mode === 'light' ? 0.08 : 0.25,
     shadowRadius: 12,
     elevation: 8,
   },

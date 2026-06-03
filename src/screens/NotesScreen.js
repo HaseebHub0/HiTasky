@@ -17,6 +17,7 @@ import { useStore } from '../lib/store.js';
 import { useAppTheme } from '../lib/useTheme.js';
 import { Icon } from '../components/icons.js';
 import { getPet } from '../lib/pets.js';
+import { Pet } from '../components/Pet.js';
 import { Kicker, Display } from '../components/ui.js';
 import { FONT, ACCENTS, softOf } from '../theme.js';
 
@@ -25,7 +26,6 @@ const { width: SCREEN_W } = Dimensions.get('window');
 function GlassyHeader({ theme, settings, title, onOpenPets, onOpenSettings }) {
   const s = makeStyles(theme);
   const currentPet = settings?.pet || 'zen';
-  const pet = getPet(currentPet);
 
   return (
     <View style={s.glassHeader}>
@@ -37,7 +37,7 @@ function GlassyHeader({ theme, settings, title, onOpenPets, onOpenSettings }) {
           accessibilityRole="button"
           accessibilityLabel="Open pet companion selector"
         >
-          <Text style={s.petEmoji}>{pet.emoji}</Text>
+          <Pet petId={currentPet} theme={theme} size={26} reactive={false} still={true} />
         </Pressable>
         <Text style={[s.brandWord, { color: theme.text }]}>{title}</Text>
       </View>

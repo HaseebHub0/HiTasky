@@ -11,6 +11,7 @@ import { Icon } from '../components/icons.js';
 import { Wordmark } from '../components/Wordmark.js';
 import { TaskCard } from '../components/TaskCard.js';
 import { getPet } from '../lib/pets.js';
+import { Pet } from '../components/Pet.js';
 import { Kicker, Display, H2, Meta, EmptyState } from '../components/ui.js';
 import { FONT } from '../theme.js';
 
@@ -50,7 +51,6 @@ function calculateStreak(tasks) {
 
 function DoneHeader({ theme, settings, s, onOpenPets, onOpenSettings }) {
   const currentPet = settings?.pet || 'zen';
-  const pet = getPet(currentPet);
 
   return (
     <View style={s.header}>
@@ -62,7 +62,7 @@ function DoneHeader({ theme, settings, s, onOpenPets, onOpenSettings }) {
           accessibilityRole="button"
           accessibilityLabel="Open pet companion selector"
         >
-          <Text style={s.petEmoji}>{pet.emoji}</Text>
+          <Pet petId={currentPet} theme={theme} size={26} reactive={false} still={true} />
         </Pressable>
         <Wordmark theme={theme} size={22} />
       </View>

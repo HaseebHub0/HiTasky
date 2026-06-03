@@ -290,6 +290,8 @@ export function SettingsScreen({ onToast, onTriggerPaywall, onBack }) {
           />
           <View style={[st.divider, { backgroundColor: theme.hairline }]} />
           <ActionRow icon={<Icon.trash size={18} color={theme.text3} />} label="Clear completed tasks" theme={theme} onPress={() => setConfirm('clear')} />
+          <View style={[st.divider, { backgroundColor: theme.hairline }]} />
+          <ActionRow icon={<Icon.star size={18} color={theme.text3} />} label="Load performance test data (20+ items)" theme={theme} onPress={() => setConfirm('testData')} />
         </View>
       </View>
 
@@ -388,6 +390,15 @@ export function SettingsScreen({ onToast, onTriggerPaywall, onBack }) {
         theme={theme}
         onCancel={() => setConfirm(null)}
         onConfirm={() => { actions.reset(); setConfirm(null); onToast('HiTasky reset'); }}
+      />
+      <ConfirmDialog
+        open={confirm === 'testData'}
+        title="Load performance test data?"
+        body="This will reset and load 20+ lists, 40 tasks, and 20 notes to test the performance of the app."
+        confirmLabel="Load test data"
+        theme={theme}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => { actions.reset(); setConfirm(null); onToast('Performance test data loaded'); }}
       />
 
       {/* Feedback dialog */}
