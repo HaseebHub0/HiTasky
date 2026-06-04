@@ -1,0 +1,49 @@
+# EAS upload ignore list.
+# EAS uses THIS file instead of .gitignore when present. We mirror
+# .gitignore but DELIBERATELY do NOT ignore google-services.json so the
+# Firebase config is included in the build (it's git-ignored for safety,
+# but EAS still needs it). credentials.json stays out (EAS manages
+# signing credentials remotely).
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Secrets that must NOT reach EAS either
+credentials.json
+.env
+.env.*
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
