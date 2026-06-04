@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,300;0,400;0,500;1,400&family=Hanken+Grotesk:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { width: 1024px; height: 500px; overflow: hidden; }
+
+  .canvas {
+    width: 1024px;
+    height: 500px;
+    position: relative;
+    background:
+      radial-gradient(900px 600px at 72% 50%, rgba(229,138,75,0.16), transparent 60%),
+      radial-gradient(600px 500px at 12% 18%, rgba(111,184,144,0.06), transparent 60%),
+      #18140F;
+    overflow: hidden;
+    font-family: 'Hanken Grotesk', sans-serif;
+  }
+
+  /* soft grain dots */
+  .dot { position: absolute; border-radius: 50%; }
+
+  /* ---- Left text block ---- */
+  .left {
+    position: absolute;
+    left: 64px;
+    top: 0;
+    height: 500px;
+    width: 470px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .brandrow { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+  .logo-tile {
+    width: 52px; height: 52px; border-radius: 15px;
+    background: #221D17;
+    border: 1px solid rgba(244,232,214,0.10);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; line-height: 1;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .brandname {
+    font-family: 'Newsreader', serif;
+    font-size: 40px;
+    font-weight: 500;
+    color: #F3ECDF;
+    letter-spacing: 0.3px;
+  }
+  .brandname b { color: #E58A4B; font-weight: 500; font-style: italic; }
+
+  .headline {
+    font-family: 'Newsreader', serif;
+    font-weight: 300;
+    font-size: 52px;
+    line-height: 1.05;
+    color: #F3ECDF;
+    letter-spacing: -1px;
+    margin-bottom: 20px;
+  }
+  .headline i { font-style: italic; color: #E58A4B; }
+
+  .chips { display: flex; gap: 10px; flex-wrap: wrap; }
+  .chip {
+    font-size: 14px;
+    font-weight: 600;
+    color: #B8AE9D;
+    background: rgba(244,232,214,0.05);
+    border: 1px solid rgba(244,232,214,0.10);
+    padding: 8px 15px;
+    border-radius: 100px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .chip .d { width: 6px; height: 6px; border-radius: 50%; background: #E58A4B; }
+
+  /* ---- Phone ---- */
+  .phone {
+    position: absolute;
+    right: 96px;
+    top: 50%;
+    transform: translateY(-50%) rotate(-4deg);
+    width: 248px;
+    height: 466px;
+    border-radius: 40px;
+    background: #18140F;
+    border: 2px solid #2B251D;
+    box-shadow: 0 40px 90px rgba(0,0,0,0.6), 0 0 0 8px rgba(34,29,23,0.6);
+    padding: 16px 15px;
+    overflow: hidden;
+  }
+  .screen { width: 100%; height: 100%; overflow: hidden; }
+  .scr-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .scr-brand { display: flex; align-items: center; gap: 8px; }
+  .scr-tile {
+    width: 24px; height: 24px; border-radius: 7px; background: #221D17;
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+    border: 1px solid rgba(244,232,214,0.08);
+  }
+  .scr-word { font-family: 'Newsreader', serif; font-size: 15px; color: #F3ECDF; }
+  .scr-date { font-size: 10px; color: #7C7264; font-weight: 500; }
+
+  .kicker { font-size: 9.5px; letter-spacing: 1.6px; color: #7C7264; font-weight: 600; text-transform: uppercase; margin-bottom: 9px; }
+  .kicker em { color: #E58A4B; font-style: normal; }
+
+  .card {
+    background: #221D17;
+    border-radius: 16px;
+    padding: 13px 13px;
+    display: flex; gap: 11px; align-items: flex-start;
+    margin-bottom: 9px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+  }
+  .card.hero { padding: 16px 14px; border: 1.5px solid rgba(229,138,75,0.4); }
+  .ring {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 1.6px solid #564E43; margin-top: 2px; flex: none;
+  }
+  .ring.fill { background: #E58A4B; border-color: #E58A4B; position: relative; }
+  .ring.fill::after {
+    content: ''; position: absolute; left: 5px; top: 4px;
+    width: 6px; height: 3px; border-left: 1.6px solid #18140F; border-bottom: 1.6px solid #18140F;
+    transform: rotate(-45deg);
+  }
+  .c-title { font-family: 'Newsreader', serif; font-size: 16px; color: #F3ECDF; line-height: 1.2; }
+  .card.hero .c-title { font-size: 18px; }
+  .c-meta { font-size: 9.5px; color: #7C7264; font-weight: 500; margin-top: 6px; }
+  .c-meta b { color: #E58A4B; font-weight: 600; }
+  .c-title.done { color: #7C7264; font-style: italic; text-decoration: line-through; text-decoration-color: rgba(124,114,100,0.7); }
+
+  /* ---- Floating pet badges ---- */
+  .pet {
+    position: absolute;
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 27px; line-height: 1;
+    box-shadow: 0 10px 26px rgba(0,0,0,0.45);
+    backdrop-filter: blur(2px);
+  }
+</style>
+</head>
+<body>
+  <div class="canvas">
+
+    <!-- Left content -->
+    <div class="left">
+      <div class="brandrow">
+        <div class="logo-tile">🐸</div>
+        <div class="brandname">Hi&nbsp;<b>Tasky</b></div>
+      </div>
+      <div class="headline">A calmer way<br/>to keep your <i>days.</i></div>
+      <div class="chips">
+        <div class="chip"><span class="d"></span>No account</div>
+        <div class="chip"><span class="d"></span>No ads</div>
+        <div class="chip"><span class="d"></span>Works offline</div>
+      </div>
+    </div>
+
+    <!-- Phone -->
+    <div class="phone">
+      <div class="screen">
+        <div class="scr-head">
+          <div class="scr-brand">
+            <div class="scr-tile">🐸</div>
+            <div class="scr-word">Hi Tasky</div>
+          </div>
+          <div class="scr-date">Tue · Jun 2</div>
+        </div>
+
+        <div class="kicker">Now</div>
+        <div class="card hero">
+          <div class="ring"></div>
+          <div>
+            <div class="c-title">Reply to design feedback</div>
+            <div class="c-meta">Work · <b>Due 2:00</b></div>
+          </div>
+        </div>
+
+        <div class="kicker" style="margin-top:14px;">Next · <em>2 left</em></div>
+        <div class="card">
+          <div class="ring"></div>
+          <div>
+            <div class="c-title">Finish chapter 8 notes</div>
+            <div class="c-meta">Study</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ring"></div>
+          <div>
+            <div class="c-title">Morning workout</div>
+            <div class="c-meta">Fitness</div>
+          </div>
+        </div>
+
+        <div class="kicker" style="margin-top:14px;">Done</div>
+        <div class="card" style="background:transparent;box-shadow:none;padding:6px 13px;">
+          <div class="ring fill"></div>
+          <div><div class="c-title done">Run 5K at the park</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating companions -->
+    <div class="pet" style="left:78px;  top:54px;  background:rgba(111,184,144,0.16); border:1px solid rgba(111,184,144,0.4);">🐸</div>
+    <div class="pet" style="left:470px; top:70px;  background:rgba(229,138,75,0.16); border:1px solid rgba(229,138,75,0.4);">🦊</div>
+    <div class="pet" style="left:560px; top:360px; background:rgba(164,143,208,0.16);border:1px solid rgba(164,143,208,0.4);">🦉</div>
+    <div class="pet" style="left:455px; top:255px; background:rgba(224,162,74,0.15); border:1px solid rgba(224,162,74,0.4);">🐱</div>
+    <div class="pet" style="left:120px; top:392px; background:rgba(143,179,155,0.16);border:1px solid rgba(143,179,155,0.4);">🐼</div>
+    <div class="pet" style="left:705px; top:392px; background:rgba(127,176,198,0.16);border:1px solid rgba(127,176,198,0.4);">🐧</div>
+    <div class="pet" style="left:300px; top:60px;  background:rgba(154,160,166,0.14);border:1px solid rgba(154,160,166,0.38);">🐺</div>
+    <div class="pet" style="left:300px; top:402px; background:rgba(181,124,163,0.16);border:1px solid rgba(181,124,163,0.4);">🐰</div>
+
+  </div>
+</body>
+</html>

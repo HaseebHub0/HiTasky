@@ -1,9 +1,9 @@
 // ============================================================
 // Pet — HiTasky's signature animated companion.
 //
-// One component renders all five species (fox · owl · bunny · wolf
-// · frog) as hand-built SVG, tinted by the active theme accent. Each
-// pet has its own resting motion (idle float / blink cadence) and a
+// Renders each species as its emoji (🐸 🦊 🦉 🐰 🐺 🐱 🐼 🐧) so the
+// in-app companions match the marketing artwork exactly. The motion
+// personality is preserved: each pet has its own resting float and a
 // distinct reaction to every life event:
 //
 //   add      → quick "I see it" gesture
@@ -11,225 +11,27 @@
 //   rest     → the settled pose for empty states
 //
 // Body motion runs on the native driver (Animated.View transforms).
-// Blinks toggle SVG shapes on a timer. A little emote pops above the
-// head on reactions. Pass `reactive` to subscribe to the global pet
-// reaction bus; otherwise drive it with the `mood` prop.
+// A little emote pops above the head on reactions. Pass `reactive` to
+// subscribe to the global pet reaction bus; otherwise drive it with the
+// `mood` prop.
 // ============================================================
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Text, View, Pressable } from 'react-native';
-import Svg, { Path, Circle, Ellipse, Rect, G, Line } from 'react-native-svg';
+import { Animated, Easing, Platform, Text, View, Pressable } from 'react-native';
 import { getPet, onPetReaction } from '../lib/pets.js';
-import { FONT } from '../theme.js';
-
-/* ---------------- eyes (shared) ---------------- */
-function Eyes({ lx, rx, cy, r = 4.2, closed, ink, accent }) {
-  if (closed) {
-    return (
-      <G stroke={ink} strokeWidth={3} strokeLinecap="round">
-        <Path d={`M${lx - 5} ${cy} q5 4 10 0`} />
-        <Path d={`M${rx - 5} ${cy} q5 4 10 0`} />
-      </G>
-    );
-  }
-  return (
-    <G fill={ink}>
-      <Circle cx={lx} cy={cy} r={r} />
-      <Circle cx={rx} cy={cy} r={r} />
-      <Circle cx={lx + 1.4} cy={cy - 1.4} r={r * 0.32} fill="#fff" opacity={0.9} />
-      <Circle cx={rx + 1.4} cy={cy - 1.4} r={r * 0.32} fill="#fff" opacity={0.9} />
-    </G>
-  );
-}
-
-/* ---------------- species art (120×120 box) ---------------- */
-function FoxArt({ accent, soft, ink, closed }) {
-  return (
-    <Svg width="100%" height="100%" viewBox="0 0 120 120">
-      {/* ears */}
-      <Path d="M30 40 L37 12 L56 38 Z" fill={accent} />
-      <Path d="M90 40 L83 12 L64 38 Z" fill={accent} />
-      <Path d="M36 35 L39 20 L48 35 Z" fill={soft} />
-      <Path d="M84 35 L81 20 L72 35 Z" fill={soft} />
-      {/* head */}
-      <Circle cx={60} cy={62} r={34} fill={accent} />
-      {/* cheeks / muzzle */}
-      <Path d="M60 96 C44 96 34 84 36 70 C44 78 76 78 84 70 C86 84 76 96 60 96 Z" fill={soft} />
-      <Eyes lx={49} rx={71} cy={60} closed={closed} ink={ink} accent={accent} />
-      {/* nose */}
-      <Path d="M60 78 l-5 -6 h10 Z" fill={ink} />
-      <Path d="M60 78 v6" stroke={ink} strokeWidth={2.4} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function OwlArt({ accent, soft, ink, closed }) {
-  return (
-    <Svg width="100%" height="100%" viewBox="0 0 120 120">
-      {/* ear tufts */}
-      <Path d="M34 34 L30 16 L48 30 Z" fill={accent} />
-      <Path d="M86 34 L90 16 L72 30 Z" fill={accent} />
-      {/* body / head */}
-      <Rect x={26} y={30} width={68} height={66} rx={30} fill={accent} />
-      {/* belly */}
-      <Path d="M60 96 C42 96 34 80 38 60 C46 70 74 70 82 60 C86 80 78 96 60 96 Z" fill={soft} />
-      {/* eye discs */}
-      <Circle cx={47} cy={58} r={15} fill={soft} />
-      <Circle cx={73} cy={58} r={15} fill={soft} />
-      <Eyes lx={47} rx={73} cy={58} r={6} closed={closed} ink={ink} accent={accent} />
-      {/* beak */}
-      <Path d="M60 64 l-6 8 h12 Z" fill={ink} />
-    </Svg>
-  );
-}
-
-function BunnyArt({ accent, soft, ink, closed }) {
-  return (
-    <Svg width="100%" height="100%" viewBox="0 0 120 120">
-      {/* ears */}
-      <Rect x={44} y={6} width={13} height={50} rx={6.5} fill={accent} transform="rotate(-8 50 30)" />
-      <Rect x={63} y={6} width={13} height={50} rx={6.5} fill={accent} transform="rotate(8 70 30)" />
-      <Rect x={47} y={12} width={6} height={36} rx={3} fill={soft} transform="rotate(-8 50 30)" />
-      <Rect x={66} y={12} width={6} height={36} rx={3} fill={soft} transform="rotate(8 70 30)" />
-      {/* head */}
-      <Circle cx={60} cy={70} r={32} fill={accent} />
-      {/* cheeks */}
-      <Circle cx={44} cy={78} r={9} fill={soft} />
-      <Circle cx={76} cy={78} r={9} fill={soft} />
-      <Eyes lx={49} rx={71} cy={66} closed={closed} ink={ink} accent={accent} />
-      {/* nose + mouth */}
-      <Path d="M60 78 l-4 -4 h8 Z" fill={ink} />
-      <Path d="M60 78 v4 M60 82 q-5 4 -9 1 M60 82 q5 4 9 1" stroke={ink} strokeWidth={2} strokeLinecap="round" fill="none" />
-    </Svg>
-  );
-}
-
-function WolfArt({ accent, soft, ink, closed }) {
-  return (
-    <Svg width="100%" height="100%" viewBox="0 0 120 120">
-      {/* ears (upright, sharp) */}
-      <Path d="M30 44 L34 14 L54 40 Z" fill={accent} />
-      <Path d="M90 44 L86 14 L66 40 Z" fill={accent} />
-      <Path d="M37 36 L39 22 L48 36 Z" fill={soft} />
-      <Path d="M83 36 L81 22 L72 36 Z" fill={soft} />
-      {/* head */}
-      <Path d="M26 58 C26 40 42 30 60 30 C78 30 94 40 94 58 C94 74 82 86 60 94 C38 86 26 74 26 58 Z" fill={accent} />
-      {/* muzzle */}
-      <Path d="M60 94 C50 90 44 80 46 70 C52 76 68 76 74 70 C76 80 70 90 60 94 Z" fill={soft} />
-      <Eyes lx={49} rx={71} cy={58} closed={closed} ink={ink} accent={accent} />
-      {/* nose */}
-      <Path d="M60 76 l-5 -5 h10 Z" fill={ink} />
-      <Path d="M60 76 v7" stroke={ink} strokeWidth={2.4} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function FrogArt({ accent, soft, ink, closed }) {
-  return (
-    <Svg width="100%" height="100%" viewBox="0 0 120 120">
-      {/* eye bumps */}
-      <Circle cx={42} cy={40} r={16} fill={accent} />
-      <Circle cx={78} cy={40} r={16} fill={accent} />
-      <Circle cx={42} cy={40} r={9} fill={soft} />
-      <Circle cx={78} cy={40} r={9} fill={soft} />
-      <Eyes lx={42} rx={78} cy={40} r={4.6} closed={closed} ink={ink} accent={accent} />
-      {/* head */}
-      <Ellipse cx={60} cy={68} rx={40} ry={30} fill={accent} />
-      {/* belly */}
-      <Ellipse cx={60} cy={82} rx={26} ry={14} fill={soft} />
-      {/* smile */}
-      <Path d="M40 70 q20 18 40 0" stroke={ink} strokeWidth={3} strokeLinecap="round" fill="none" />
-      {/* cheeks */}
-      <Circle cx={36} cy={72} r={5} fill={soft} opacity={0.8} />
-      <Circle cx={84} cy={72} r={5} fill={soft} opacity={0.8} />
-    </Svg>
-  );
-}
-
-function CatArt({ accent, soft, ink, closed }) {
-  return (
-    <Svg width="100%" height="100%" viewBox="0 0 120 120">
-      {/* pointed ears */}
-      <Path d="M30 42 L34 14 L56 36 Z" fill={accent} />
-      <Path d="M90 42 L86 14 L64 36 Z" fill={accent} />
-      <Path d="M37 36 L39 22 L50 34 Z" fill={soft} />
-      <Path d="M83 36 L81 22 L70 34 Z" fill={soft} />
-      {/* head */}
-      <Circle cx={60} cy={62} r={33} fill={accent} />
-      {/* muzzle */}
-      <Path d="M60 92 C46 92 38 82 40 70 C48 76 72 76 80 70 C82 82 74 92 60 92 Z" fill={soft} />
-      <Eyes lx={49} rx={71} cy={60} closed={closed} ink={ink} accent={accent} />
-      {/* nose */}
-      <Path d="M60 76 l-4 -4 h8 Z" fill={ink} />
-      <Path d="M60 76 v4 M60 80 q-5 4 -9 1 M60 80 q5 4 9 1" stroke={ink} strokeWidth={2} strokeLinecap="round" fill="none" />
-      {/* whiskers */}
-      <G stroke={ink} strokeWidth={1.6} strokeLinecap="round" opacity={0.75}>
-        <Line x1={34} y1={72} x2={18} y2={68} />
-        <Line x1={34} y1={77} x2={18} y2={78} />
-        <Line x1={86} y1={72} x2={102} y2={68} />
-        <Line x1={86} y1={77} x2={102} y2={78} />
-      </G>
-    </Svg>
-  );
-}
-
-function PandaArt({ accent, soft, ink, closed }) {
-  return (
-    <Svg width="100%" height="100%" viewBox="0 0 120 120">
-      {/* round ears */}
-      <Circle cx={34} cy={32} r={13} fill={ink} />
-      <Circle cx={86} cy={32} r={13} fill={ink} />
-      {/* head */}
-      <Circle cx={60} cy={64} r={36} fill={accent} />
-      {/* eye patches */}
-      <Ellipse cx={46} cy={60} rx={11} ry={14} fill={ink} transform="rotate(-18 46 60)" />
-      <Ellipse cx={74} cy={60} rx={11} ry={14} fill={ink} transform="rotate(18 74 60)" />
-      <Eyes lx={47} rx={73} cy={60} r={4.6} closed={closed} ink={soft} accent={accent} />
-      {/* snout */}
-      <Path d="M60 80 l-5 -5 h10 Z" fill={ink} />
-      <Path d="M60 80 v5 M60 85 q-6 5 -11 1 M60 85 q6 5 11 1" stroke={ink} strokeWidth={2.2} strokeLinecap="round" fill="none" />
-    </Svg>
-  );
-}
-
-function PenguinArt({ accent, soft, ink, closed }) {
-  return (
-    <Svg width="100%" height="100%" viewBox="0 0 120 120">
-      {/* body */}
-      <Ellipse cx={60} cy={66} rx={34} ry={40} fill={accent} />
-      {/* belly */}
-      <Ellipse cx={60} cy={74} rx={22} ry={30} fill={soft} />
-      {/* face cap */}
-      <Path d="M38 50 C40 30 80 30 82 50 C74 58 46 58 38 50 Z" fill={accent} />
-      <Eyes lx={51} rx={69} cy={48} r={4.4} closed={closed} ink={ink} accent={accent} />
-      {/* beak */}
-      <Path d="M60 56 l-7 6 h14 Z" fill="#E0A24A" />
-      {/* feet */}
-      <Ellipse cx={48} cy={106} rx={9} ry={5} fill="#E0A24A" />
-      <Ellipse cx={72} cy={106} rx={9} ry={5} fill="#E0A24A" />
-    </Svg>
-  );
-}
-
-const ART = {
-  fox: FoxArt, owl: OwlArt, bunny: BunnyArt, wolf: WolfArt, frog: FrogArt,
-  cat: CatArt, panda: PandaArt, penguin: PenguinArt,
-};
 
 /* ---------------- the animated companion ---------------- */
 export function Pet({ petId, theme, size = 96, mood, reactive = false, idle = true, still = false }) {
   const pet = getPet(petId);
-  const Art = ART[pet.species] || FoxArt;
+  const emoji = pet.emoji || '🐸';
 
   const float = useRef(new Animated.Value(0)).current; // idle breathing
   const pop = useRef(new Animated.Value(1)).current; // reaction scale
   const hop = useRef(new Animated.Value(0)).current; // reaction translateY
   const rot = useRef(new Animated.Value(0)).current; // reaction rotate (-1..1)
   const emoteV = useRef(new Animated.Value(0)).current; // emote pop
-  const [closed, setClosed] = useState(false);
   const [emote, setEmote] = useState('');
-  const restPose = mood === 'rest';
 
-  /* ---- idle float + blink ---- */
+  /* ---- idle float ---- */
   useEffect(() => {
     if (!idle || still) return undefined;
     const cfg = {
@@ -244,34 +46,6 @@ export function Pet({ petId, theme, size = 96, mood, reactive = false, idle = tr
     loop.start();
     return () => loop.stop();
   }, [pet.anim.float, idle, still]);
-
-  // blink — sleeping pets (rest+owl/sleep) stay closed
-  useEffect(() => {
-    if (still) {
-      setClosed(false);
-      return undefined;
-    }
-    if (restPose && pet.anim.rest.type === 'sleep') {
-      setClosed(true);
-      return undefined;
-    }
-    setClosed(false);
-    let alive = true;
-    let t;
-    const schedule = () => {
-      t = setTimeout(() => {
-        if (!alive) return;
-        setClosed(true);
-        setTimeout(() => alive && setClosed(false), 150);
-        schedule();
-      }, pet.anim.blink + Math.random() * 1400);
-    };
-    schedule();
-    return () => {
-      alive = false;
-      clearTimeout(t);
-    };
-  }, [pet.anim.blink, restPose, pet.anim.rest.type, still]);
 
   /* ---- reactions ---- */
   const play = (kind) => {
@@ -328,6 +102,8 @@ export function Pet({ petId, theme, size = 96, mood, reactive = false, idle = tr
         style={{
           width: size,
           height: size,
+          alignItems: 'center',
+          justifyContent: 'center',
           transform: [
             { translateY: Animated.add(floatY, hop) },
             { scale: Animated.multiply(floatS, pop) },
@@ -335,7 +111,17 @@ export function Pet({ petId, theme, size = 96, mood, reactive = false, idle = tr
           ],
         }}
       >
-        <Art accent={theme.accent} soft={theme.accentSoft} ink={theme.text} closed={closed} />
+        <Text
+          allowFontScaling={false}
+          style={{
+            fontSize: size * 0.78,
+            lineHeight: size * 0.98,
+            textAlign: 'center',
+            ...(Platform.OS === 'android' ? { includeFontPadding: false } : null),
+          }}
+        >
+          {emoji}
+        </Text>
       </Animated.View>
     </View>
   );
@@ -419,7 +205,7 @@ export function HeaderPet({ petId, theme, onPress }) {
     const moods = ['add', 'complete', 'rest'];
     const randomMood = moods[Math.floor(Math.random() * moods.length)];
     setMood(randomMood);
-    
+
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
       setMood('idle');
@@ -442,4 +228,3 @@ export function HeaderPet({ petId, theme, onPress }) {
     </Pressable>
   );
 }
-
