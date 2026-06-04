@@ -3,9 +3,15 @@
 // Routes between onboarding and the live app (Today · Lists ·
 // Done · Settings). Everything runs fully offline.
 // ============================================================
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { LogBox, StyleSheet, View } from 'react-native';
+import { LogBox, StyleSheet, View, Modal, Pressable, Text, Platform, UIManager, AppState, Linking } from 'react-native';
+
+if (Platform.OS === 'android') {
+  if (UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+}
 LogBox.ignoreLogs(['expo-notifications']);
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -28,17 +34,24 @@ import { StoreProvider, useStore } from './src/lib/store.js';
 import { useAppTheme } from './src/lib/useTheme.js';
 import { listName, todayTasks, doneGroups } from './src/lib/selectors.js';
 import { softFeedback } from './src/lib/feedback.js';
-import { initBilling } from './src/lib/billing.js';
+import { initBilling, getProProduct, purchaseLifetimePro, restorePurchase } from './src/lib/billing.js';
+import { PAYWALL_PRICING } from './src/lib/config.js';
+import { track, flushAnalytics } from './src/lib/analytics.js';
+import { initCrashReporting } from './src/lib/crash.js';
+import { checkIntegrity, isProductionBuild } from './src/lib/security.js';
 import { AdBanner, recordCompletionForAd, showInterstitial, markAdShown } from './src/lib/adManager.js';
 import { emitPetReaction, getPet } from './src/lib/pets.js';
 
 import { BottomNav } from './src/components/BottomNav.js';
-import { Fab, Toast, PaywallDialog, FeedbackPrompt } from './src/components/ui.js';
+import { Fab, Toast, PaywallDialog, RatingDialog, TrialBanner } from './src/components/ui.js';
 import { AddSheet } from './src/components/AddSheet.js';
+import { NoteSheet } from './src/components/NoteSheet.js';
 import { SearchModal } from './src/components/SearchModal.js';
 import { PetShop } from './src/components/PetShop.js';
 import { FeedbackDialog } from './src/components/FeedbackDialog.js';
 import { Confetti } from './src/components/Confetti.js';
+import { FONT, ACCENTS } from './src/theme.js';
+import { Icon } from './src/components/icons.js';
 
 import { TodayScreen } from './src/screens/TodayScreen.js';
 import { ListsOverview, ListDetail, NewListDialog } from './src/screens/ListsScreen.js';
@@ -48,27 +61,43 @@ import { SettingsScreen } from './src/screens/SettingsScreen.js';
 import { OnboardingScreen } from './src/screens/OnboardingScreen.js';
 
 function AppShell() {
-  const { state, actions } = useStore();
+  const { state, actions, entitlement } = useStore();
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const onboarded = state.settings.onboarded;
   const isProUser = state.settings.purchased;
 
-  // Initialize billing on mount (non-blocking)
+  // Initialize crash reporting + billing on mount (non-blocking)
   useEffect(() => {
+    initCrashReporting();
     initBilling();
+  }, []);
+
+  // Anti-tamper gate (Phase 2.3): only enforce on real production builds
+  // so Expo Go / dev is unaffected. Lock (not crash) if compromised.
+  const [locked, setLocked] = useState(false);
+  useEffect(() => {
+    if (!isProductionBuild()) return;
+    (async () => {
+      const verdict = await checkIntegrity();
+      if (verdict.compromised) setLocked(true);
+    })();
   }, []);
 
   const [tab, setTab] = useState('today');
   const [listView, setListView] = useState({ mode: 'overview', id: null });
   const [sheet, setSheet] = useState(null);
+  const [noteSheet, setNoteSheet] = useState(null);
+  const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [newList, setNewList] = useState(false);
   const [toast, setToast] = useState('');
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [petShopOpen, setPetShopOpen] = useState(false);
-  const [feedbackPromptOpen, setFeedbackPromptOpen] = useState(false);
+  const [ratingOpen, setRatingOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [proProduct, setProProduct] = useState(null);
+  const [purchaseBusy, setPurchaseBusy] = useState(false);
 
   // Confetti trigger state
   const [confettiTrigger, setConfettiTrigger] = useState(false);
@@ -84,7 +113,7 @@ function AppShell() {
     }
     if (prevActiveCount > 0 && activeCount === 0) {
       const completedToday = doneGroups(state).today;
-      if (completedToday.length > 0) {
+      if (completedToday.length > 0 && state.settings.animations !== false) {
         setConfettiTrigger(true);
       }
     }
@@ -92,6 +121,92 @@ function AppShell() {
   }, [activeCount, state]);
 
   const showToast = useCallback((m) => setToast(m), []);
+
+  // Flush the offline analytics buffer whenever the app comes to the
+  // foreground (best moment to catch a regained connection).
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') flushAnalytics();
+    });
+    flushAnalytics();
+    return () => sub.remove();
+  }, []);
+
+  // Engagement KPI: emit task_completed when the completed count rises.
+  // Centralized here so every screen's completion is captured once.
+  const completedCount = state.tasks.filter((t) => t.isCompleted).length;
+  const prevCompletedRef = useRef(null);
+  useEffect(() => {
+    if (prevCompletedRef.current === null) {
+      prevCompletedRef.current = completedCount;
+      return;
+    }
+    if (completedCount > prevCompletedRef.current) {
+      track('task_completed', { delta: completedCount - prevCompletedRef.current });
+    }
+    prevCompletedRef.current = completedCount;
+  }, [completedCount]);
+
+  // FOMO paywall: once the 7-day trial has lapsed (and the user hasn't
+  // bought Pro), surface the full-screen paywall on launch. Inline gates
+  // (task/list limits, etc.) catch any premium action afterwards.
+  useEffect(() => {
+    if (onboarded && entitlement.trialExpired) {
+      const t = setTimeout(() => setPaywallOpen(true), 400);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [onboarded, entitlement.trialExpired]);
+
+  // Fetch the live Play Store price + log the view when the paywall opens.
+  useEffect(() => {
+    if (!paywallOpen) return;
+    track('paywall_viewed', { trialDaysLeft: entitlement.trialDaysLeft, expired: entitlement.trialExpired });
+    let cancelled = false;
+    (async () => {
+      const p = await getProProduct();
+      if (!cancelled) setProProduct(p);
+    })();
+    return () => { cancelled = true; };
+  }, [paywallOpen]);
+
+  const handlePurchase = useCallback(async () => {
+    setPurchaseBusy(true);
+    track('purchase_attempted', { productId: 'hitasky_lifetime_pro' });
+    try {
+      const res = await purchaseLifetimePro();
+      if (res.success) {
+        actions.setSetting('purchased', true);
+        actions.setSetting('purchasedAt', res.purchasedAt || new Date().toISOString());
+        track('purchase_success', { productId: 'hitasky_lifetime_pro' });
+        setPaywallOpen(false);
+        showToast('HiTasky Premium activated — thank you!');
+      } else if (res.error !== 'cancelled') {
+        track('purchase_failed', { error: res.error });
+        showToast(res.error || 'Purchase could not be completed.');
+      }
+    } finally {
+      setPurchaseBusy(false);
+    }
+  }, [actions, showToast]);
+
+  const handleRestore = useCallback(async () => {
+    setPurchaseBusy(true);
+    try {
+      const res = await restorePurchase();
+      if (res.success) {
+        actions.setSetting('purchased', true);
+        actions.setSetting('purchasedAt', res.purchasedAt || new Date().toISOString());
+        track('purchase_restored', {});
+        setPaywallOpen(false);
+        showToast('Purchase restored!');
+      } else {
+        showToast(res.error || 'No previous purchase found.');
+      }
+    } finally {
+      setPurchaseBusy(false);
+    }
+  }, [actions, showToast]);
 
   // mark each tab as "seen" (input to the feedback-prompt heuristic)
   useEffect(() => {
@@ -101,17 +216,67 @@ function AppShell() {
   }, [tab, onboarded]);
 
   // Once the user has settled in — 3+ tasks completed and every tab
-  // visited — invite feedback. Shown only once.
+  // visited — invite a rating. Shown once; "Maybe later" snoozes it for
+  // ~14 days rather than disabling it forever (anti-spam, but recoverable).
   const completedTotal = state.tasks.filter((t) => t.isCompleted).length;
   const tabsSeen = state.settings.tabsSeen || {};
   const allTabsSeen = ['today', 'lists', 'notes', 'done'].every((k) => tabsSeen[k]);
+  const reviewPrompted = state.settings.reviewPrompted;
+  const reviewSnoozedAt = state.settings.reviewSnoozedAt;
+  const snoozeElapsed =
+    !reviewSnoozedAt || Date.now() - new Date(reviewSnoozedAt).getTime() > 14 * 24 * 60 * 60 * 1000;
   useEffect(() => {
-    if (onboarded && !state.settings.feedbackPrompted && completedTotal >= 3 && allTabsSeen) {
-      const t = setTimeout(() => setFeedbackPromptOpen(true), 900);
+    if (onboarded && !reviewPrompted && snoozeElapsed && completedTotal >= 3 && allTabsSeen) {
+      const t = setTimeout(() => setRatingOpen(true), 900);
       return () => clearTimeout(t);
     }
     return undefined;
-  }, [onboarded, completedTotal, allTabsSeen, state.settings.feedbackPrompted]);
+  }, [onboarded, completedTotal, allTabsSeen, reviewPrompted, snoozeElapsed]);
+
+  // Open the device's Play Store review page (falls back to the web URL).
+  const openPlayStoreReview = useCallback(async () => {
+    const market = 'market://details?id=com.hitasky.app';
+    const web = 'https://play.google.com/store/apps/details?id=com.hitasky.app';
+    try {
+      const can = await Linking.canOpenURL(market);
+      await Linking.openURL(can ? market : web);
+    } catch (e) {
+      try { await Linking.openURL(web); } catch (e2) {}
+    }
+  }, []);
+
+  // Rating flow: 4–5 stars → Play Store; 1–3 stars → in-app feedback form.
+  const handleRatingSubmit = useCallback((stars) => {
+    actions.setSetting('reviewPrompted', true);
+    setRatingOpen(false);
+    track('app_rated', { stars });
+    if (stars >= 4) {
+      openPlayStoreReview();
+      showToast('Thank you for the support!');
+    } else {
+      setTimeout(() => setFeedbackOpen(true), 250);
+    }
+  }, [actions, openPlayStoreReview, showToast]);
+
+  const handleRatingLater = useCallback(() => {
+    actions.setSetting('reviewSnoozedAt', new Date().toISOString());
+    setRatingOpen(false);
+  }, [actions]);
+
+  /* ---------- anti-tamper lock (Phase 2.3) ---------- */
+  if (locked) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.bg, alignItems: 'center', justifyContent: 'center', padding: 32 }]}>
+        <StatusBar style={theme.mode === 'light' ? 'dark' : 'light'} />
+        <Text style={{ fontFamily: FONT.serif, fontSize: 22, color: theme.text, textAlign: 'center', marginBottom: 12 }}>
+          Unable to run securely
+        </Text>
+        <Text style={{ fontFamily: FONT.sans, fontSize: 14, lineHeight: 21, color: theme.text2, textAlign: 'center' }}>
+          HiTasky can't run on a modified or rooted environment. Please install the official version from Google Play.
+        </Text>
+      </View>
+    );
+  }
 
   /* ---------- onboarding ---------- */
   if (!onboarded) {
@@ -151,6 +316,29 @@ function AppShell() {
     actions.deleteTask(id);
     setSheet(null);
     showToast('Task deleted');
+  };
+
+  const openAddNote = () => {
+    setNoteSheet({ mode: 'add', note: null });
+  };
+  const openEditNote = (note) => {
+    setNoteSheet({ mode: 'edit', note });
+  };
+  const onSaveNote = (data) => {
+    if (noteSheet.mode === 'add') {
+      actions.addNote(data);
+      showToast('Note created');
+    } else {
+      actions.updateNote(noteSheet.note.id, data);
+      showToast('Note saved');
+    }
+    softFeedback(state.settings);
+    setNoteSheet(null);
+  };
+  const onDeleteNote = (id) => {
+    actions.deleteNote(id);
+    showToast('Note deleted');
+    setNoteSheet(null);
   };
 
   const toggleTheme = () => {
@@ -200,6 +388,7 @@ function AppShell() {
         onOpenSearch={() => setSearchOpen(true)}
         onOpenPets={() => setPetShopOpen(true)}
         onOpenSettings={() => setTab('settings')}
+        onOpenNote={openEditNote}
       />
     );
   } else if (tab === 'done') {
@@ -216,20 +405,29 @@ function AppShell() {
         onToast={showToast}
         onTriggerPaywall={() => setPaywallOpen(true)}
         onBack={() => setTab('today')}
+        onOpenPets={() => setPetShopOpen(true)}
+        onOpenRating={() => setRatingOpen(true)}
       />
     );
   }
 
-  const showFab = tab === 'today';
+  const showFab = tab !== 'settings';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar style={theme.mode === 'light' ? 'dark' : 'light'} />
       <SafeAreaView style={styles.container} edges={['top']}>
+        {entitlement.inTrial && (
+          <TrialBanner
+            daysLeft={entitlement.trialDaysLeft}
+            theme={theme}
+            onPress={() => setPaywallOpen(true)}
+          />
+        )}
         {screen}
       </SafeAreaView>
 
-      {showFab && <Fab theme={theme} onPress={openAdd} />}
+      {showFab && <Fab theme={theme} onPress={() => setFabMenuOpen(true)} bottomInset={insets.bottom} />}
 
       {/* Ad banner for free-tier users (hidden for Pro, dormant until ADS_ENABLED) */}
       <AdBanner isProUser={isProUser} theme={theme} />
@@ -295,19 +493,14 @@ function AppShell() {
         onTriggerPaywall={() => setPaywallOpen(true)}
       />
 
-      {/* Auto feedback prompt + dialog */}
-      <FeedbackPrompt
-        open={feedbackPromptOpen}
+      {/* Rating + review flow */}
+      <RatingDialog
+        open={ratingOpen}
         theme={theme}
-        onShare={() => {
-          actions.setSetting('feedbackPrompted', true);
-          setFeedbackPromptOpen(false);
-          setFeedbackOpen(true);
-        }}
-        onDismiss={() => {
-          actions.setSetting('feedbackPrompted', true);
-          setFeedbackPromptOpen(false);
-        }}
+        petId={state.settings.pet || 'zen'}
+        onSubmit={handleRatingSubmit}
+        onLater={handleRatingLater}
+        onClose={handleRatingLater}
       />
       <FeedbackDialog
         open={feedbackOpen}
@@ -319,25 +512,62 @@ function AppShell() {
       {/* Confetti Celebration */}
       <Confetti trigger={confettiTrigger} onComplete={() => setConfettiTrigger(false)} />
 
-      {/* Paywall Dialog */}
+      {/* Paywall Dialog — real billing, honest pricing */}
       <PaywallDialog
         open={paywallOpen}
         theme={theme}
-        onPurchase={() => {
-          actions.setSetting('purchased', true);
-          setPaywallOpen(false);
-          showToast('HiTasky Premium Activated!');
-        }}
-        onRestore={() => {
-          actions.setSetting('purchased', true);
-          setPaywallOpen(false);
-          showToast('Purchase Restored!');
-        }}
+        busy={purchaseBusy}
+        salePrice={(proProduct && proProduct.localizedPrice) || PAYWALL_PRICING.saleFallback}
+        referencePrice={PAYWALL_PRICING.referencePrice}
+        badge={PAYWALL_PRICING.badge}
+        onPurchase={handlePurchase}
+        onRestore={handleRestore}
         onCancel={() => setPaywallOpen(false)}
       />
 
       {/* Toast */}
       <Toast message={toast} theme={theme} onDone={() => setToast('')} />
+
+      {/* NoteSheet */}
+      <NoteSheet
+        open={!!noteSheet}
+        mode={noteSheet?.mode}
+        note={noteSheet?.note}
+        theme={theme}
+        onSave={onSaveNote}
+        onDelete={onDeleteNote}
+        onClose={() => setNoteSheet(null)}
+      />
+
+      {/* FAB Select Option Menu */}
+      <Modal visible={fabMenuOpen} transparent animationType="fade" onRequestClose={() => setFabMenuOpen(false)}>
+        <Pressable style={styles.scrim} onPress={() => setFabMenuOpen(false)} />
+        <View style={[styles.fabMenuWrap, { bottom: 170 + insets.bottom }]} pointerEvents="box-none">
+          <View style={[styles.fabMenu, { backgroundColor: theme.surface, borderColor: theme.surface2 }]}>
+            <Pressable
+              style={styles.fabMenuItem}
+              onPress={() => {
+                setFabMenuOpen(false);
+                openAdd();
+              }}
+            >
+              <Icon.tick size={18} color={theme.accent} />
+              <Text style={[styles.fabMenuText, { color: theme.text }]}>Create Task</Text>
+            </Pressable>
+            <View style={[styles.fabMenuDivider, { backgroundColor: theme.hairline }]} />
+            <Pressable
+              style={styles.fabMenuItem}
+              onPress={() => {
+                setFabMenuOpen(false);
+                openAddNote();
+              }}
+            >
+              <Icon.book size={18} color={theme.accent} />
+              <Text style={[styles.fabMenuText, { color: theme.text }]}>Create Note</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -370,4 +600,35 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.15)' },
+  fabMenuWrap: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 20,
+  },
+  fabMenu: {
+    borderRadius: 16,
+    borderWidth: 2,
+    width: 150,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+    overflow: 'hidden',
+  },
+  fabMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  fabMenuText: {
+    fontFamily: FONT.sansSemi,
+    fontSize: 14,
+  },
+  fabMenuDivider: {
+    height: 1,
+  },
 });

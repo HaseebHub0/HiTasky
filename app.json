@@ -21,7 +21,11 @@
       "package": "com.hitasky.app",
       "versionCode": 1,
       "softwareKeyboardLayoutMode": "resize",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
+        "POST_NOTIFICATIONS",
+        "SCHEDULE_EXACT_ALARM",
+        "RECEIVE_BOOT_COMPLETED",
         "POST_NOTIFICATIONS",
         "SCHEDULE_EXACT_ALARM",
         "RECEIVE_BOOT_COMPLETED"
@@ -61,6 +65,21 @@
             }
           ]
         }
+      ],
+      "expo-secure-store",
+      "react-native-iap",
+      "@react-native-firebase/app",
+      "@react-native-firebase/crashlytics",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "\n-keep,allowobfuscation class com.facebook.react.** { *; }\n-keep class com.facebook.jni.** { *; }\n-dontwarn com.facebook.react.**\n-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod\n-keep class com.google.firebase.** { *; }\n-keep class com.google.android.gms.** { *; }\n-dontwarn com.google.firebase.**\n-dontwarn com.google.android.gms.**\n-keepattributes SourceFile,LineNumberTable\n-keep public class * extends java.lang.Exception\n-keep class com.android.vending.billing.** { *; }\n-keep class com.android.billingclient.api.** { *; }\n-keep class com.dooboolab.** { *; }\n-dontwarn com.android.billingclient.**\n-keep class com.gantix.JailMonkey.** { *; }\n-keep class com.airbnb.lottie.** { *; }\n-dontwarn com.airbnb.lottie.**\n-assumenosideeffects class android.util.Log { public static *** d(...); public static *** v(...); public static *** i(...); }\n",
+            "enableMinifyInReleaseBuilds": true
+          }
+        }
       ]
     ],
     "extra": {
@@ -68,6 +87,12 @@
         "projectId": "af11cea3-364e-4e85-9716-55af5714653f"
       }
     },
-    "owner": "haseeb93"
+    "owner": "haseeb93",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/af11cea3-364e-4e85-9716-55af5714653f"
+    }
   }
 }

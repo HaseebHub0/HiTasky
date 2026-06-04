@@ -101,15 +101,42 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
   };
 
   // write a chosen ISO into whichever field the picker was opened for
-  const writeField = (iso) => (pickerTarget === 'reminder' ? setReminderAt(iso) : setDueAt(iso));
+  const writeField = (iso) => {
+    if (pickerTarget === 'reminder') {
+      setReminderAt(iso);
+    } else {
+      setDueAt(iso);
+      reanchorReminder(iso);
+    }
+  };
+
+  // Keep the reminder coherent with the due date: when the due date
+  // changes, move an existing reminder to the SAME calendar day (keeping
+  // its time of day). Prevents the confusing "due Today, reminder Jun 13".
+  const reanchorReminder = (newDueIso) => {
+    if (!reminderAt || !newDueIso) return;
+    const r = new Date(reminderAt);
+    const d = new Date(newDueIso);
+    d.setHours(r.getHours(), r.getMinutes(), 0, 0);
+    setReminderAt(d.toISOString());
+  };
 
   const pickQuick = (type) => {
     softFeedback(settings);
     const now = new Date();
-    if (type === 'today') setDueAt(startOfDay(now).toISOString());
-    else if (type === 'tomorrow') setDueAt(addDays(startOfDay(now), 1).toISOString());
-    else if (type === 'weekend') setDueAt(thisWeekend(now).toISOString());
-    else if (type === 'calendar') {
+    if (type === 'today') {
+      const iso = startOfDay(now).toISOString();
+      setDueAt(iso);
+      reanchorReminder(iso);
+    } else if (type === 'tomorrow') {
+      const iso = addDays(startOfDay(now), 1).toISOString();
+      setDueAt(iso);
+      reanchorReminder(iso);
+    } else if (type === 'weekend') {
+      const iso = thisWeekend(now).toISOString();
+      setDueAt(iso);
+      reanchorReminder(iso);
+    } else if (type === 'calendar') {
       setPickerTarget('due');
       setPickerDate(dueAt ? new Date(dueAt) : new Date());
       setPickerMode('date');
@@ -203,17 +230,18 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
   if (!open) return null;
 
   return (
-    <Modal transparent visible={open} animationType="none" onRequestClose={dismiss}>
+    <Modal transparent visible={open} animationType="none" onRequestClose={dismiss} statusBarTranslucent>
       {/* scrim */}
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: theme.scrim, opacity: scrimOp }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
       </Animated.View>
 
-      {/* sheet */}
+      {/* sheet — padding behavior on BOTH platforms lifts the sheet
+          reliably above the keyboard even inside a Modal window */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
         style={s.kavWrap}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+        keyboardVerticalOffset={0}
       >
         <Animated.View style={[s.sheet, { transform: [{ translateY: slideY }] }]}>
           {/* grabber */}
@@ -271,19 +299,19 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
               }}
             />
 
-            {/* when chips */}
-            <Text style={[s.label, { color: theme.text3 }]}>WHEN</Text>
+            {/* DUE DATE — when the task belongs */}
+            <FieldHeader title="DUE DATE" desc="When this task belongs on your list" theme={theme} s={s} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={{ gap: 9 }}>
               <Chip label="Today" on={isQuick('today')} theme={theme} onPress={() => pickQuick('today')} />
               <Chip label="Tomorrow" on={isQuick('tomorrow')} theme={theme} onPress={() => pickQuick('tomorrow')} />
               <Chip label="This weekend" on={isQuick('weekend')} theme={theme} onPress={() => pickQuick('weekend')} />
-              <Chip icon={<Icon.cal size={16} color={theme.text2} />} theme={theme} onPress={() => pickQuick('calendar')} />
+              <Chip icon={<Icon.cal size={16} color={theme.text2} />} label="Pick a date" theme={theme} onPress={() => pickQuick('calendar')} />
             </ScrollView>
 
             {dueAt && (
               <View style={s.dueBadge}>
                 <Icon.cal size={14} color={theme.accent} />
-                <Text style={[s.dueText, { color: theme.accent }]}>{dueLabel(dueAt)}</Text>
+                <Text style={[s.dueText, { color: theme.accent }]}>Due {dueLabel(dueAt)}</Text>
                 <Pressable onPress={() => { setDueAt(null); }} hitSlop={8}>
                   <Text style={{ color: theme.text3, fontSize: 16, fontWeight: '700' }}>×</Text>
                 </Pressable>
@@ -298,20 +326,25 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
               <Chip label="Low" on={priority === 'low'} theme={theme} dotColor={theme.text4} onPress={() => { softFeedback(settings); setPriority('low'); }} />
             </ScrollView>
 
-            {/* remind me */}
-            <Text style={[s.label, { color: theme.text3, marginTop: 18 }]}>REMIND ME</Text>
+            {/* REMINDER — when to send the notification */}
+            <FieldHeader
+              title="REMINDER"
+              desc={dueAt ? 'A notification on your due date' : 'A notification to nudge you'}
+              theme={theme}
+              s={s}
+            />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={{ gap: 9 }}>
-              <Chip label="Off" on={!reminderAt} theme={theme} onPress={() => { softFeedback(settings); setReminderAt(null); }} />
+              <Chip label="No reminder" on={!reminderAt} theme={theme} onPress={() => { softFeedback(settings); setReminderAt(null); }} />
               <Chip label="9:00 AM" on={isReminderHour(9)} theme={theme} onPress={() => setReminderQuick(9)} />
               <Chip label="1:00 PM" on={isReminderHour(13)} theme={theme} onPress={() => setReminderQuick(13)} />
               <Chip label="6:00 PM" on={isReminderHour(18)} theme={theme} onPress={() => setReminderQuick(18)} />
-              <Chip icon={<Icon.bell size={15} color={theme.text2} />} theme={theme} onPress={openReminderCustom} />
+              <Chip icon={<Icon.bell size={15} color={theme.text2} />} label="Date & time" theme={theme} onPress={openReminderCustom} />
             </ScrollView>
 
             {reminderAt && (
               <View style={s.dueBadge}>
                 <Icon.bell size={14} color={theme.accent} />
-                <Text style={[s.dueText, { color: theme.accent }]}>Reminder · {dueLabel(reminderAt)}</Text>
+                <Text style={[s.dueText, { color: theme.accent }]}>Notify {dueLabel(reminderAt)}</Text>
                 <Pressable onPress={() => setReminderAt(null)} hitSlop={8}>
                   <Text style={{ color: theme.text3, fontSize: 16, fontWeight: '700' }}>×</Text>
                 </Pressable>
@@ -403,6 +436,16 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
   );
 }
 
+/* ---------- Section header (title + description) ---------- */
+function FieldHeader({ title, desc, theme, s }) {
+  return (
+    <View style={s.fieldHeader}>
+      <Text style={[s.label, { color: theme.text3, marginTop: 0, marginBottom: 2 }]}>{title}</Text>
+      {desc ? <Text style={[s.labelDesc, { color: theme.text4 }]}>{desc}</Text> : null}
+    </View>
+  );
+}
+
 /* ---------- Chip component ---------- */
 function Chip({ label, icon, on, theme, dotColor, onPress }) {
   return (
@@ -417,7 +460,8 @@ function Chip({ label, icon, on, theme, dotColor, onPress }) {
       ]}
     >
       {dotColor && <View style={[chipStyles.dot, { backgroundColor: dotColor }]} />}
-      {icon || <Text style={[chipStyles.text, { color: on ? theme.accent : theme.text2 }]}>{label}</Text>}
+      {icon}
+      {label ? <Text style={[chipStyles.text, { color: on ? theme.accent : theme.text2 }]}>{label}</Text> : null}
     </Pressable>
   );
 }
@@ -505,6 +549,12 @@ function makeStyles(t) {
       textTransform: 'uppercase',
       marginTop: 22,
       marginBottom: 12,
+    },
+    fieldHeader: { marginTop: 22, marginBottom: 10 },
+    labelDesc: {
+      fontFamily: FONT.sansMedium,
+      fontSize: 11.5,
+      letterSpacing: 0.1,
     },
     chipScroll: { flexGrow: 0 },
     dueBadge: {

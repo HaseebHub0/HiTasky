@@ -19,43 +19,95 @@ export function TaskCard({
   drag, // long-press handler from the reorderable list
   isActive = false,
 }) {
+  const isNew = Date.now() - new Date(task.createdAt).getTime() < 4000;
+
   const progress = useRef(new Animated.Value(0)).current; // ring fill 0..1
-  const cardOpacity = useRef(new Animated.Value(1)).current;
-  const cardScale = useRef(new Animated.Value(1)).current;
-  const cardTranslateY = useRef(new Animated.Value(0)).current;
+  const cardOpacity = useRef(new Animated.Value(isNew ? 0 : 1)).current;
+  const cardScale = useRef(new Animated.Value(isNew ? 0.95 : 1)).current;
+  const cardTranslateY = useRef(new Animated.Value(isNew ? 20 : 0)).current;
   const borderAnim = useRef(new Animated.Value(0)).current;
   const [phase, setPhase] = useState(null);
   const [petAnimation, setPetAnimation] = useState(null); // 'add' | 'complete' | null
 
   const ink = settings?.inkStrike;
+  const anim = settings?.animations !== false; // master animation switch
   const sans = settings?.sansTitles;
   const done = task.isCompleted;
 
-  // Mount effect to show 'add' pet animation for 1.5s if task was created in the last 4 seconds
+  // Mount effect to show 'add' pet animation and premium entry slide
   useEffect(() => {
     const diff = Date.now() - new Date(task.createdAt).getTime();
-    if (diff > 0 && diff < 4000) {
+    const isFresh = diff > 0 && diff < 4000;
+
+    // Animations disabled — snap the card straight to its resting state.
+    if (!anim) {
+      cardOpacity.setValue(1);
+      cardScale.setValue(1);
+      cardTranslateY.setValue(0);
+      return undefined;
+    }
+
+    if (isFresh) {
+      // 1. Slow, smooth entry — a gentle rise + fade that's noticeable
+      //    and feels premium (easeOutCubic over ~620ms).
+      Animated.parallel([
+        Animated.timing(cardOpacity, {
+          toValue: 1,
+          duration: 620,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.spring(cardScale, {
+          toValue: 1,
+          stiffness: 60,
+          damping: 15,
+          mass: 1,
+          useNativeDriver: true,
+        }),
+        Animated.spring(cardTranslateY, {
+          toValue: 0,
+          stiffness: 60,
+          damping: 15,
+          mass: 1,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // 2. Play pet add gesture (lingers a touch longer)
       setPetAnimation('add');
-      const timer = setTimeout(() => setPetAnimation(null), 1500);
+      const timer = setTimeout(() => setPetAnimation(null), 1800);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, []);
 
   // Animate border glow and pulse card scale on pet animation
   useEffect(() => {
     if (petAnimation) {
-      // Glow overlay opacity: fade in (200ms), stay, fade out (200ms)
+      // Glow overlay opacity: gentle fade in, hold, soft fade out
       Animated.sequence([
-        Animated.timing(borderAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
-        Animated.timing(borderAnim, { toValue: 1, duration: 1100, useNativeDriver: true }),
-        Animated.timing(borderAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(borderAnim, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(borderAnim, { toValue: 1, duration: 1400, useNativeDriver: true }),
+        Animated.timing(borderAnim, { toValue: 0, duration: 320, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
       ]).start();
 
-      // Mild card scale pulse
-      Animated.sequence([
-        Animated.spring(cardScale, { toValue: 1.025, friction: 3, tension: 150, useNativeDriver: true }),
-        Animated.spring(cardScale, { toValue: 1.0, friction: 3, tension: 150, useNativeDriver: true }),
-      ]).start();
+      // Mild card scale pulse - only for completion to avoid conflict with entrance spring!
+      if (petAnimation === 'complete') {
+        Animated.sequence([
+          Animated.spring(cardScale, {
+            toValue: 1.025,
+            stiffness: 120,
+            damping: 10,
+            useNativeDriver: true,
+          }),
+          Animated.spring(cardScale, {
+            toValue: 1.0,
+            stiffness: 120,
+            damping: 10,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
     } else {
       borderAnim.setValue(0);
     }
@@ -63,57 +115,60 @@ export function TaskCard({
 
   const complete = () => {
     if (phase) return;
-    completionFeedback(settings);
+    completionFeedback(settings); // haptic always respects the haptics setting
+
+    // Animations disabled — complete instantly with no motion.
+    if (!anim) {
+      setPhase('completing');
+      onComplete && onComplete(task);
+      return;
+    }
+
     emitPetReaction('complete');
-    
-    // Play complete pet animation inside the card for 1.5 seconds first
+
+    // Play complete pet animation inside the card
     setPetAnimation('complete');
     setPhase('completing');
 
+    // 1. Fill the checkbox ring with a slow, satisfying spring overshoot.
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: 560,
+      easing: Easing.out(Easing.back(1.6)), // springy overshoot ease
+      useNativeDriver: false,
+    }).start();
+
+    // 2. After a longer hold so the celebration is noticeable, smoothly
+    //    fade, scale down, and float the card away.
     setTimeout(() => {
       if (!ink) {
-        // Fast transition: check and quickly fade out
-        Animated.timing(progress, { toValue: 1, duration: 150, useNativeDriver: false }).start();
-        Animated.timing(cardOpacity, { toValue: 0, duration: 150, useNativeDriver: true }).start();
-        setTimeout(() => onComplete && onComplete(task), 160);
+        onComplete && onComplete(task);
         return;
       }
 
-      // Premium sequence:
-      // 1. Tick/fill the checkbox ring immediately
-      Animated.timing(progress, {
-        toValue: 1,
-        duration: 250,
-        easing: Easing.bezier(0.16, 1, 0.3, 1), // easeOutExpo
-        useNativeDriver: false,
-      }).start();
-
-      // 2. Smoothly fade, scale down, and slide the card out
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(cardOpacity, {
-            toValue: 0,
-            duration: 320,
-            easing: Easing.bezier(0.25, 1, 0.5, 1), // easeOutQuart
-            useNativeDriver: true,
-          }),
-          Animated.timing(cardScale, {
-            toValue: 0.95,
-            duration: 320,
-            easing: Easing.bezier(0.25, 1, 0.5, 1),
-            useNativeDriver: true,
-          }),
-          Animated.timing(cardTranslateY, {
-            toValue: 35,
-            duration: 320,
-            easing: Easing.bezier(0.25, 1, 0.5, 1),
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          onComplete && onComplete(task);
-        });
-      }, 220); // Delay so the user feels the checkbox fill action
-    }, 1500); // 1.5s delay to let the pet animation play out
+      Animated.parallel([
+        Animated.timing(cardOpacity, {
+          toValue: 0,
+          duration: 620,
+          easing: Easing.bezier(0.25, 1, 0.5, 1), // easeOutQuart
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardScale, {
+          toValue: 0.92,
+          duration: 620,
+          easing: Easing.bezier(0.25, 1, 0.5, 1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardTranslateY, {
+          toValue: -28, // float up and away gracefully
+          duration: 620,
+          easing: Easing.bezier(0.25, 1, 0.5, 1),
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        onComplete && onComplete(task);
+      });
+    }, 1050); // longer hold lets the user register the satisfying feedback
   };
 
   const s = makeStyles(theme);
@@ -169,18 +224,32 @@ export function TaskCard({
   const ringBg = progress.interpolate({
     inputRange: [0, 0.12, 1],
     outputRange: ['rgba(0,0,0,0)', theme.accent, theme.accent],
+    extrapolate: 'clamp',
   });
   const ringBorder = progress.interpolate({
     inputRange: [0, 0.12, 1],
     outputRange: [theme.text4, theme.accent, theme.accent],
+    extrapolate: 'clamp',
+  });
+  const ringScale = progress.interpolate({
+    inputRange: [0, 0.3, 0.6, 1],
+    outputRange: [1, 1.25, 0.92, 1],
+    extrapolate: 'clamp',
   });
   const tickOpacity = progress.interpolate({
     inputRange: [0, 0.2, 1],
     outputRange: [0, 1, 1],
+    extrapolate: 'clamp',
+  });
+  const tickScale = progress.interpolate({
+    inputRange: [0, 0.35, 0.65, 0.85, 1],
+    outputRange: [0, 0, 1.45, 0.9, 1],
+    extrapolate: 'clamp',
   });
   const titleColor = progress.interpolate({
     inputRange: [0, 0.1, 1],
     outputRange: [theme.text, theme.text3, theme.text3],
+    extrapolate: 'clamp',
   });
 
   return (
@@ -218,10 +287,14 @@ export function TaskCard({
           style={[
             s.ring,
             hero && s.ringHero,
-            { backgroundColor: ringBg, borderColor: ringBorder },
+            {
+              backgroundColor: ringBg,
+              borderColor: ringBorder,
+              transform: [{ scale: ringScale }],
+            },
           ]}
         >
-          <Animated.View style={{ opacity: tickOpacity }}>
+          <Animated.View style={{ opacity: tickOpacity, transform: [{ scale: tickScale }] }}>
             <Icon.tick size={hero ? 16 : 15} color={theme.onAccent} />
           </Animated.View>
         </Animated.View>

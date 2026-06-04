@@ -11,7 +11,7 @@ import { Icon } from '../components/icons.js';
 import { Wordmark } from '../components/Wordmark.js';
 import { TaskCard } from '../components/TaskCard.js';
 import { getPet } from '../lib/pets.js';
-import { Pet } from '../components/Pet.js';
+import { Pet, HeaderPet } from '../components/Pet.js';
 import { Kicker, Display, H2, Meta, EmptyState } from '../components/ui.js';
 import { FONT } from '../theme.js';
 
@@ -55,15 +55,7 @@ function DoneHeader({ theme, settings, s, onOpenPets, onOpenSettings }) {
   return (
     <View style={s.header}>
       <View style={s.brandRow}>
-        <Pressable
-          onPress={onOpenPets}
-          hitSlop={8}
-          style={[s.petBtn, { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
-          accessibilityRole="button"
-          accessibilityLabel="Open pet companion selector"
-        >
-          <Pet petId={currentPet} theme={theme} size={26} reactive={false} still={true} />
-        </Pressable>
+        <HeaderPet petId={currentPet} theme={theme} onPress={onOpenPets} />
         <Wordmark theme={theme} size={22} />
       </View>
       <View style={s.headerRight}>
@@ -85,6 +77,7 @@ export function DoneScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
   const { state, actions } = useStore();
   const theme = useAppTheme();
   const { today, yesterday, earlier, total } = doneGroups(state);
+  const [earlierLimit, setEarlierLimit] = React.useState(15);
   const uncomplete = useCallback((task) => actions.toggleTask(task.id, false), []);
   const nameFor = (t) => listName(state, t.listId);
 
@@ -230,7 +223,15 @@ export function DoneScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
           </View>
           {section('Today', today)}
           {section('Yesterday', yesterday)}
-          {section('Earlier', earlier)}
+          {section('Earlier', earlier.slice(0, earlierLimit))}
+          {earlier.length > earlierLimit && (
+            <Pressable
+              onPress={() => setEarlierLimit((prev) => prev + 20)}
+              style={s.loadMoreBtn}
+            >
+              <Text style={s.loadMoreText}>Show older history ({earlier.length - earlierLimit} remaining)</Text>
+            </Pressable>
+          )}
         </View>
       ) : (
         <EmptyState
@@ -409,6 +410,22 @@ function makeStyles(t) {
       justifyContent: 'center',
       paddingHorizontal: 38,
       paddingVertical: 40,
+    },
+    loadMoreBtn: {
+      paddingVertical: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: t.radius,
+      backgroundColor: t.surface2,
+      marginTop: 8,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: t.hairline,
+    },
+    loadMoreText: {
+      fontFamily: FONT.sansSemi,
+      fontSize: 12.5,
+      color: t.text3,
     },
   });
 }

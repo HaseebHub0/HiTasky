@@ -16,9 +16,10 @@
 // reaction bus; otherwise drive it with the `mood` prop.
 // ============================================================
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Text, View } from 'react-native';
+import { Animated, Easing, Text, View, Pressable } from 'react-native';
 import Svg, { Path, Circle, Ellipse, Rect, G, Line } from 'react-native-svg';
 import { getPet, onPetReaction } from '../lib/pets.js';
+import { FONT } from '../theme.js';
 
 /* ---------------- eyes (shared) ---------------- */
 function Eyes({ lx, rx, cy, r = 4.2, closed, ink, accent }) {
@@ -144,7 +145,75 @@ function FrogArt({ accent, soft, ink, closed }) {
   );
 }
 
-const ART = { fox: FoxArt, owl: OwlArt, bunny: BunnyArt, wolf: WolfArt, frog: FrogArt };
+function CatArt({ accent, soft, ink, closed }) {
+  return (
+    <Svg width="100%" height="100%" viewBox="0 0 120 120">
+      {/* pointed ears */}
+      <Path d="M30 42 L34 14 L56 36 Z" fill={accent} />
+      <Path d="M90 42 L86 14 L64 36 Z" fill={accent} />
+      <Path d="M37 36 L39 22 L50 34 Z" fill={soft} />
+      <Path d="M83 36 L81 22 L70 34 Z" fill={soft} />
+      {/* head */}
+      <Circle cx={60} cy={62} r={33} fill={accent} />
+      {/* muzzle */}
+      <Path d="M60 92 C46 92 38 82 40 70 C48 76 72 76 80 70 C82 82 74 92 60 92 Z" fill={soft} />
+      <Eyes lx={49} rx={71} cy={60} closed={closed} ink={ink} accent={accent} />
+      {/* nose */}
+      <Path d="M60 76 l-4 -4 h8 Z" fill={ink} />
+      <Path d="M60 76 v4 M60 80 q-5 4 -9 1 M60 80 q5 4 9 1" stroke={ink} strokeWidth={2} strokeLinecap="round" fill="none" />
+      {/* whiskers */}
+      <G stroke={ink} strokeWidth={1.6} strokeLinecap="round" opacity={0.75}>
+        <Line x1={34} y1={72} x2={18} y2={68} />
+        <Line x1={34} y1={77} x2={18} y2={78} />
+        <Line x1={86} y1={72} x2={102} y2={68} />
+        <Line x1={86} y1={77} x2={102} y2={78} />
+      </G>
+    </Svg>
+  );
+}
+
+function PandaArt({ accent, soft, ink, closed }) {
+  return (
+    <Svg width="100%" height="100%" viewBox="0 0 120 120">
+      {/* round ears */}
+      <Circle cx={34} cy={32} r={13} fill={ink} />
+      <Circle cx={86} cy={32} r={13} fill={ink} />
+      {/* head */}
+      <Circle cx={60} cy={64} r={36} fill={accent} />
+      {/* eye patches */}
+      <Ellipse cx={46} cy={60} rx={11} ry={14} fill={ink} transform="rotate(-18 46 60)" />
+      <Ellipse cx={74} cy={60} rx={11} ry={14} fill={ink} transform="rotate(18 74 60)" />
+      <Eyes lx={47} rx={73} cy={60} r={4.6} closed={closed} ink={soft} accent={accent} />
+      {/* snout */}
+      <Path d="M60 80 l-5 -5 h10 Z" fill={ink} />
+      <Path d="M60 80 v5 M60 85 q-6 5 -11 1 M60 85 q6 5 11 1" stroke={ink} strokeWidth={2.2} strokeLinecap="round" fill="none" />
+    </Svg>
+  );
+}
+
+function PenguinArt({ accent, soft, ink, closed }) {
+  return (
+    <Svg width="100%" height="100%" viewBox="0 0 120 120">
+      {/* body */}
+      <Ellipse cx={60} cy={66} rx={34} ry={40} fill={accent} />
+      {/* belly */}
+      <Ellipse cx={60} cy={74} rx={22} ry={30} fill={soft} />
+      {/* face cap */}
+      <Path d="M38 50 C40 30 80 30 82 50 C74 58 46 58 38 50 Z" fill={accent} />
+      <Eyes lx={51} rx={69} cy={48} r={4.4} closed={closed} ink={ink} accent={accent} />
+      {/* beak */}
+      <Path d="M60 56 l-7 6 h14 Z" fill="#E0A24A" />
+      {/* feet */}
+      <Ellipse cx={48} cy={106} rx={9} ry={5} fill="#E0A24A" />
+      <Ellipse cx={72} cy={106} rx={9} ry={5} fill="#E0A24A" />
+    </Svg>
+  );
+}
+
+const ART = {
+  fox: FoxArt, owl: OwlArt, bunny: BunnyArt, wolf: WolfArt, frog: FrogArt,
+  cat: CatArt, panda: PandaArt, penguin: PenguinArt,
+};
 
 /* ---------------- the animated companion ---------------- */
 export function Pet({ petId, theme, size = 96, mood, reactive = false, idle = true, still = false }) {
@@ -341,3 +410,36 @@ function runMotion(type, { pop, hop, rot }) {
 function size(frac) {
   return 96 * frac;
 }
+
+export function HeaderPet({ petId, theme, onPress }) {
+  const [mood, setMood] = useState('idle');
+  const timeoutRef = useRef(null);
+
+  const triggerReaction = () => {
+    const moods = ['add', 'complete', 'rest'];
+    const randomMood = moods[Math.floor(Math.random() * moods.length)];
+    setMood(randomMood);
+    
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setMood('idle');
+    }, 1200);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  return (
+    <Pressable
+      onPress={() => { triggerReaction(); onPress(); }}
+      style={{ position: 'relative', alignItems: 'center', justifyContent: 'center' }}
+      hitSlop={8}
+    >
+      <Pet petId={petId} theme={theme} size={38} mood={mood} reactive={false} still={false} />
+    </Pressable>
+  );
+}
+

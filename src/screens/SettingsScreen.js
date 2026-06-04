@@ -8,15 +8,17 @@ import { useStore, exportData, importData } from '../lib/store.js';
 import { useAppTheme } from '../lib/useTheme.js';
 import { Icon } from '../components/icons.js';
 import { PetCompanion } from '../components/PetCompanion.js';
-import { Pet } from '../components/Pet.js';
+import { Pet, HeaderPet } from '../components/Pet.js';
+import { Wordmark } from '../components/Wordmark.js';
 import { Kicker, Display, Switch, Seg, ConfirmDialog } from '../components/ui.js';
 import { FeedbackDialog } from '../components/FeedbackDialog.js';
 import { FONT, ACCENTS, softOf, makeTheme } from '../theme.js';
 import { PETS, getPet } from '../lib/pets.js';
+import { completionFeedback, selectionFeedback } from '../lib/feedback.js';
 import * as Updates from 'expo-updates';
 
 
-export function SettingsScreen({ onToast, onTriggerPaywall, onBack }) {
+export function SettingsScreen({ onToast, onTriggerPaywall, onBack, onOpenPets, onOpenRating }) {
   const { state, actions } = useStore();
   const theme = useAppTheme();
   const s = state.settings;
@@ -84,19 +86,22 @@ export function SettingsScreen({ onToast, onTriggerPaywall, onBack }) {
     >
       {/* Header */}
       <View style={st.header}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+        <View style={st.brandRow}>
+          <HeaderPet petId={state.settings.pet || 'zen'} theme={theme} onPress={onOpenPets} />
+          <Wordmark theme={theme} size={22} />
+        </View>
+        <View style={st.headerRight}>
           {onBack && (
-            <Pressable style={st.backBtn} onPress={onBack}>
-              <Icon.chevLeft size={16} color={theme.text3} />
-              <Text style={[st.backText, { color: theme.text3 }]}>Back</Text>
+            <Pressable style={st.backBtn} onPress={onBack} hitSlop={8}>
+              <Icon.chevLeft size={18} color={theme.text3} />
             </Pressable>
           )}
-          <View />
         </View>
-        <View style={{ marginTop: 12 }}>
-          <Kicker style={{ color: theme.text3, marginBottom: 6 }}>Settings</Kicker>
-          <Display style={{ color: theme.text }}>Yours to keep.</Display>
-        </View>
+      </View>
+
+      <View style={{ marginTop: 6, marginBottom: 16 }}>
+        <Kicker style={{ color: theme.text3, marginBottom: 6 }}>Settings</Kicker>
+        <Display style={{ color: theme.text }}>Yours to keep.</Display>
       </View>
 
       {/* ---- APPEARANCE ---- */}
@@ -128,21 +133,22 @@ export function SettingsScreen({ onToast, onTriggerPaywall, onBack }) {
               <Text style={[st.rowTitle, { color: theme.text }]}>Accent</Text>
               <Text style={[st.rowSub, { color: theme.text3 }]}>One signature colour</Text>
             </View>
-            <View style={st.swatchRow}>
-              {ACCENTS.slice(0, 4).map((c) => (
-                <Pressable
-                  key={c}
-                  onPress={() => {
-                    if (!s.purchased) {
-                      onTriggerPaywall();
-                    } else {
-                      set('accent', c);
-                    }
-                  }}
-                  style={[st.swatch, { backgroundColor: c }, s.accent === c && st.swatchOn]}
-                />
-              ))}
-            </View>
+          </View>
+          {/* Full accent palette — wraps to a grid so all themes are pickable */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 14, paddingBottom: 14 }}>
+            {ACCENTS.map((c) => (
+              <Pressable
+                key={c}
+                onPress={() => {
+                  if (!s.purchased) {
+                    onTriggerPaywall();
+                  } else {
+                    set('accent', c);
+                  }
+                }}
+                style={[st.swatch, { backgroundColor: c }, s.accent === c && st.swatchOn]}
+              />
+            ))}
           </View>
 
           <View style={[st.divider, { backgroundColor: theme.hairline }]} />
@@ -233,13 +239,13 @@ export function SettingsScreen({ onToast, onTriggerPaywall, onBack }) {
               <Text style={[st.rowSub, { color: theme.text3 }]}>A soft tick on every completed task</Text>
             </View>
             <Switch
-              value={s.haptics}
+              value={s.haptics !== false}
               onChange={(v) => {
-                if (!s.purchased) {
-                  onTriggerPaywall();
-                } else {
-                  set('haptics', v);
-                }
+                set('haptics', v);
+                // Fire an immediate confirmation tap when enabling so the
+                // user feels it working right away (ignores the just-set
+                // value by forcing a pulse).
+                if (v) completionFeedback({ haptics: true });
               }}
               theme={theme}
             />
@@ -247,14 +253,21 @@ export function SettingsScreen({ onToast, onTriggerPaywall, onBack }) {
 
           <View style={[st.divider, { backgroundColor: theme.hairline }]} />
 
-          {/* Ink Strike */}
+          {/* Animations master toggle */}
           <View style={st.row}>
             <View style={st.ic}><Icon.tick size={16} color={theme.text3} /></View>
             <View style={st.rowBody}>
-              <Text style={[st.rowTitle, { color: theme.text }]}>Completion animation</Text>
-              <Text style={[st.rowSub, { color: theme.text3 }]}>Slide card out when completing</Text>
+              <Text style={[st.rowTitle, { color: theme.text }]}>Animations</Text>
+              <Text style={[st.rowSub, { color: theme.text3 }]}>Completion effects & playful motion</Text>
             </View>
-            <Switch value={s.inkStrike} onChange={() => set('inkStrike', !s.inkStrike)} theme={theme} />
+            <Switch
+              value={s.animations !== false}
+              onChange={(v) => {
+                set('animations', v);
+                if (s.haptics !== false) selectionFeedback(s);
+              }}
+              theme={theme}
+            />
           </View>
         </View>
       </View>
@@ -290,8 +303,6 @@ export function SettingsScreen({ onToast, onTriggerPaywall, onBack }) {
           />
           <View style={[st.divider, { backgroundColor: theme.hairline }]} />
           <ActionRow icon={<Icon.trash size={18} color={theme.text3} />} label="Clear completed tasks" theme={theme} onPress={() => setConfirm('clear')} />
-          <View style={[st.divider, { backgroundColor: theme.hairline }]} />
-          <ActionRow icon={<Icon.star size={18} color={theme.text3} />} label="Load performance test data (20+ items)" theme={theme} onPress={() => setConfirm('testData')} />
         </View>
       </View>
 
@@ -318,6 +329,17 @@ export function SettingsScreen({ onToast, onTriggerPaywall, onBack }) {
             theme={theme}
             onPress={() => setFeedbackOpen(true)}
           />
+          {onOpenRating && (
+            <>
+              <View style={[st.divider, { backgroundColor: theme.hairline }]} />
+              <ActionRow
+                icon={<Icon.star size={18} color={theme.text3} />}
+                label="Rate HiTasky"
+                theme={theme}
+                onPress={onOpenRating}
+              />
+            </>
+          )}
         </View>
       </View>
 
@@ -391,16 +413,6 @@ export function SettingsScreen({ onToast, onTriggerPaywall, onBack }) {
         onCancel={() => setConfirm(null)}
         onConfirm={() => { actions.reset(); setConfirm(null); onToast('HiTasky reset'); }}
       />
-      <ConfirmDialog
-        open={confirm === 'testData'}
-        title="Load performance test data?"
-        body="This will reset and load 20+ lists, 40 tasks, and 20 notes to test the performance of the app."
-        confirmLabel="Load test data"
-        theme={theme}
-        onCancel={() => setConfirm(null)}
-        onConfirm={() => { actions.reset(); setConfirm(null); onToast('Performance test data loaded'); }}
-      />
-
       {/* Feedback dialog */}
       <FeedbackDialog
         open={feedbackOpen}
@@ -432,32 +444,35 @@ function makeStyles(t) {
   return StyleSheet.create({
     scroll: { paddingHorizontal: 22 },
     header: {
-      paddingHorizontal: 20,
-      paddingVertical: 12,
-      borderRadius: 24,
-      borderWidth: 1.5,
-      borderColor: t.mode === 'light' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(255, 255, 255, 0.16)',
-      backgroundColor: t.mode === 'light' ? 'rgba(251, 246, 236, 0.75)' : 'rgba(24, 39, 30, 0.6)',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 22,
+      paddingVertical: 14,
+      borderRadius: 32,
+      borderWidth: 2,
+      borderColor: t.surface2,
+      backgroundColor: t.surface,
       marginTop: 16,
       marginBottom: 20,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.1,
-      shadowRadius: 10,
-      elevation: 4,
+      shadowOpacity: t.mode === 'light' ? 0.08 : 0.25,
+      shadowRadius: 12,
+      elevation: 5,
     },
+    brandRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    headerRight: { flexDirection: 'row', alignItems: 'center' },
     backBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      paddingVertical: 6,
-      paddingHorizontal: 12,
+      width: 32,
+      height: 32,
       borderRadius: 10,
       borderWidth: 1,
       borderColor: t.hairline2,
       backgroundColor: t.surface2,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    backText: { fontFamily: FONT.sansSemi, fontSize: 14 },
     group: { marginTop: 26 },
     card: {
       borderRadius: t.radius,

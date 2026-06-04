@@ -1,8 +1,9 @@
 // ============================================================
 // Shared UI primitives: typography, Fab, Switch, Seg, Toast, Confirm.
 // ============================================================
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { Icon } from './icons.js';
 import { Illustration } from './illustrations.js';
 import { Wordmark } from './Wordmark.js';
@@ -28,14 +29,14 @@ export function Meta({ children, style }) {
 }
 
 /* ---------- FAB ---------- */
-export function Fab({ theme, onPress }) {
+export function Fab({ theme, onPress, bottomInset = 0 }) {
   const scale = useRef(new Animated.Value(1)).current;
   return (
     <Pressable
       onPressIn={() => Animated.spring(scale, { toValue: 0.92, useNativeDriver: true }).start()}
       onPressOut={() => Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true }).start()}
       onPress={onPress}
-      style={styles.fabWrap}
+      style={[styles.fabWrap, { bottom: 110 + bottomInset }]}
       accessibilityRole="button"
       accessibilityLabel="Add task"
     >
@@ -149,7 +150,10 @@ export function ConfirmDialog({ open, title, body, confirmLabel = 'Confirm', dan
 }
 
 /* ---------- Paywall dialog ---------- */
-export function PaywallDialog({ open, onPurchase, onRestore, onCancel, theme }) {
+export function PaywallDialog({
+  open, onPurchase, onRestore, onCancel, theme,
+  salePrice = '$4.99', referencePrice = null, badge = null, busy = false,
+}) {
   const features = [
     { label: 'Unlimited tasks & lists', free: false, pro: true },
     { label: 'Unlimited recurring tasks', free: false, pro: true },
@@ -173,7 +177,7 @@ export function PaywallDialog({ open, onPurchase, onRestore, onCancel, theme }) 
           <Text style={{ fontFamily: FONT.sans, fontSize: 14, lineHeight: 21, color: theme.text2, marginTop: 12, textAlign: 'center' }}>
             One payment. Yours forever. No subscription.
           </Text>
-          
+
           {/* Feature list */}
           <View style={{ marginTop: 16, marginBottom: 6 }}>
             {features.map((f, i) => (
@@ -185,24 +189,38 @@ export function PaywallDialog({ open, onPurchase, onRestore, onCancel, theme }) 
           </View>
 
           <View style={{ marginVertical: 14, alignItems: 'center' }}>
-            <Text style={{ fontFamily: FONT.serifMedium, fontSize: 32, color: theme.accent }}>$19</Text>
-            <Text style={{ fontFamily: FONT.sansSemi, fontSize: 12, color: theme.text3, textTransform: 'uppercase', letterSpacing: 1, marginTop: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
+              {/* Strikethrough only when a GENUINE reference price is set
+                  (PAYWALL_PRICING.referencePrice). Never fabricate one. */}
+              {referencePrice ? (
+                <Text style={{ fontFamily: FONT.serif, fontSize: 20, color: theme.text3, textDecorationLine: 'line-through' }}>
+                  {referencePrice}
+                </Text>
+              ) : null}
+              <Text style={{ fontFamily: FONT.serifMedium, fontSize: 32, color: theme.accent }}>{salePrice}</Text>
+            </View>
+            {badge ? (
+              <Text style={{ fontFamily: FONT.sansSemi, fontSize: 11, color: theme.onAccent, backgroundColor: theme.accent, overflow: 'hidden', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 8 }}>
+                {badge}
+              </Text>
+            ) : null}
+            <Text style={{ fontFamily: FONT.sansSemi, fontSize: 12, color: theme.text3, textTransform: 'uppercase', letterSpacing: 1, marginTop: 6 }}>
               One-time payment · Lifetime access
             </Text>
           </View>
-          
+
           <View style={{ gap: 10 }}>
-            <Pressable style={[styles.dlgBtn, { backgroundColor: theme.accent, height: 48 }]} onPress={onPurchase}>
+            <Pressable disabled={busy} style={[styles.dlgBtn, { backgroundColor: theme.accent, height: 48, opacity: busy ? 0.6 : 1 }]} onPress={onPurchase}>
               <Text style={{ fontFamily: FONT.sansBold, fontSize: 14, color: theme.onAccent }}>
-                Upgrade Now
+                {busy ? 'Processing…' : 'Upgrade Now'}
               </Text>
             </Pressable>
-            
+
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Pressable style={[styles.dlgBtn, { backgroundColor: theme.surface2 }]} onPress={onRestore}>
+              <Pressable disabled={busy} style={[styles.dlgBtn, { backgroundColor: theme.surface2 }]} onPress={onRestore}>
                 <Text style={{ fontFamily: FONT.sansBold, fontSize: 13, color: theme.text2 }}>Restore</Text>
               </Pressable>
-              <Pressable style={[styles.dlgBtn, { backgroundColor: theme.surface2 }]} onPress={onCancel}>
+              <Pressable disabled={busy} style={[styles.dlgBtn, { backgroundColor: theme.surface2 }]} onPress={onCancel}>
                 <Text style={{ fontFamily: FONT.sansBold, fontSize: 13, color: theme.text3 }}>Not Now</Text>
               </Pressable>
             </View>
@@ -213,35 +231,200 @@ export function PaywallDialog({ open, onPurchase, onRestore, onCancel, theme }) 
   );
 }
 
-/* ---------- Feedback prompt (auto, after the user settles in) ---------- */
-export function FeedbackPrompt({ open, theme, onShare, onDismiss }) {
+/* ---------- Trial countdown banner (FOMO) ---------- */
+// Slim, tappable bar shown while the 7-day trial is live. Pulses gently
+// and turns urgent (accent fill) on the final 2 days. Tapping opens the
+// paywall. Render nothing once purchased / trial over.
+export function TrialBanner({ daysLeft, onPress, theme }) {
+  const pulse = useRef(new Animated.Value(0)).current;
+  const urgent = daysLeft <= 2;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1100, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 1100, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  const dotScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.5] });
+  const dotOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] });
+
+  const label =
+    daysLeft <= 0
+      ? 'Trial ended'
+      : daysLeft === 1
+      ? 'Last day of your free trial'
+      : `${daysLeft} days left in your free trial`;
+
   return (
-    <Modal visible={open} transparent animationType="fade" onRequestClose={onDismiss}>
-      <Pressable style={[styles.scrim, { backgroundColor: theme.scrim }]} onPress={onDismiss} />
+    <Pressable
+      onPress={onPress}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 9,
+        marginHorizontal: 16,
+        marginTop: 8,
+        marginBottom: 2,
+        paddingVertical: 9,
+        paddingHorizontal: 14,
+        borderRadius: 12,
+        backgroundColor: urgent ? theme.accent : theme.accentSoft,
+        borderWidth: urgent ? 0 : 1,
+        borderColor: theme.accentSoft,
+      }}
+    >
+      <Animated.View
+        style={{
+          width: 7,
+          height: 7,
+          borderRadius: 4,
+          backgroundColor: urgent ? theme.onAccent : theme.accent,
+          transform: [{ scale: dotScale }],
+          opacity: dotOpacity,
+        }}
+      />
+      <Text
+        style={{
+          flex: 1,
+          fontFamily: FONT.sansSemi,
+          fontSize: 12.5,
+          color: urgent ? theme.onAccent : theme.text,
+        }}
+      >
+        {label}
+      </Text>
+      <Text
+        style={{
+          fontFamily: FONT.sansBold,
+          fontSize: 12.5,
+          color: urgent ? theme.onAccent : theme.accent,
+        }}
+      >
+        Upgrade ›
+      </Text>
+    </Pressable>
+  );
+}
+
+/* ---------- Rating star (filled / outline) ---------- */
+function RatingStar({ filled, color, dim, size = 40 }) {
+  const d = 'M12 2.6l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 16.7 6.6 19.5l1-6.1L3.2 9.1l6.1-.9z';
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d={d}
+        fill={filled ? color : 'none'}
+        stroke={filled ? color : dim}
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/* ---------- Rating dialog (Play Store review flow) ----------
+   Star selector with a smooth entrance. The parent decides what to do
+   with the chosen rating (4–5 → Play Store, 1–3 → in-app feedback). */
+export function RatingDialog({ open, theme, petId = 'zen', onSubmit, onLater, onClose }) {
+  const [stars, setStars] = useState(0);
+  const op = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.9)).current;
+
+  useEffect(() => {
+    if (open) {
+      setStars(0);
+      op.setValue(0);
+      scale.setValue(0.9);
+      Animated.parallel([
+        Animated.timing(op, { toValue: 1, duration: 240, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, friction: 7, tension: 90, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [open]);
+
+  const hint =
+    stars === 0
+      ? 'Tap a star to rate'
+      : stars <= 2
+      ? 'Sorry to hear that — tell us what to fix.'
+      : stars === 3
+      ? 'Thanks — how can we do better?'
+      : stars === 4
+      ? 'Lovely! A quick review means a lot.'
+      : 'Amazing! Mind sharing the love on Google Play?';
+
+  return (
+    <Modal visible={open} transparent animationType="none" onRequestClose={onClose}>
+      <Pressable style={[styles.scrim, { backgroundColor: theme.scrim }]} onPress={onClose} />
       <View style={styles.centerWrap} pointerEvents="box-none">
-        <View style={[styles.dialog, { backgroundColor: theme.surface, padding: 26, alignItems: 'center' }]}>
-          <View style={{ marginBottom: 4 }}>
-            <Illustration name="done" theme={theme} />
+        <Animated.View
+          style={[
+            styles.dialog,
+            { backgroundColor: theme.surface, padding: 26, alignItems: 'center', opacity: op, transform: [{ scale }] },
+          ]}
+        >
+          {/* Close button */}
+          <Pressable onPress={onClose} hitSlop={10} style={ratingStyles.close}>
+            <Text style={{ fontFamily: FONT.sansBold, fontSize: 20, color: theme.text3, lineHeight: 22 }}>×</Text>
+          </Pressable>
+
+          {/* App icon — the companion in a soft halo */}
+          <View style={[ratingStyles.iconHalo, { backgroundColor: theme.accentSoft }]}>
+            <Pet petId={petId} theme={theme} size={66} mood="rest" reactive={false} />
           </View>
-          <Text style={{ fontFamily: FONT.serif, fontSize: 23, color: theme.text, textAlign: 'center' }}>
+
+          <Text style={{ fontFamily: FONT.serif, fontSize: 24, color: theme.text, textAlign: 'center', marginTop: 16 }}>
             Enjoying HiTasky?
           </Text>
-          <Text style={{ fontFamily: FONT.sans, fontSize: 14, lineHeight: 21, color: theme.text2, marginTop: 10, textAlign: 'center' }}>
-            You've settled in nicely. Mind sharing a quick thought? It helps shape what comes next.
+          <Text style={{ fontFamily: FONT.sans, fontSize: 14, lineHeight: 21, color: theme.text2, marginTop: 8, textAlign: 'center' }}>
+            Your rating helps other people find a calmer way to keep their days.
           </Text>
-          <View style={{ gap: 10, marginTop: 22, width: '100%' }}>
-            <Pressable style={[styles.dlgBtn, { backgroundColor: theme.accent, height: 48 }]} onPress={onShare}>
-              <Text style={{ fontFamily: FONT.sansBold, fontSize: 14, color: theme.onAccent }}>Share a thought</Text>
+
+          {/* Star selector */}
+          <View style={ratingStyles.starsRow}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Pressable key={n} onPress={() => setStars(n)} hitSlop={6} style={ratingStyles.starBtn}>
+                <RatingStar filled={n <= stars} color={theme.accent} dim={theme.text4} size={38} />
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={{ fontFamily: FONT.sansMedium, fontSize: 12.5, color: theme.text3, textAlign: 'center', minHeight: 18 }}>
+            {hint}
+          </Text>
+
+          {/* Actions */}
+          <View style={{ gap: 10, marginTop: 20, width: '100%' }}>
+            <Pressable
+              disabled={stars === 0}
+              style={[styles.dlgBtn, { backgroundColor: theme.accent, height: 48, opacity: stars === 0 ? 0.5 : 1 }]}
+              onPress={() => onSubmit(stars)}
+            >
+              <Text style={{ fontFamily: FONT.sansBold, fontSize: 14, color: theme.onAccent }}>
+                {stars >= 4 ? 'Rate on Google Play' : stars > 0 ? 'Send feedback' : 'Rate Now'}
+              </Text>
             </Pressable>
-            <Pressable style={[styles.dlgBtn, { backgroundColor: theme.surface2 }]} onPress={onDismiss}>
+            <Pressable style={[styles.dlgBtn, { backgroundColor: theme.surface2 }]} onPress={onLater}>
               <Text style={{ fontFamily: FONT.sansBold, fontSize: 13, color: theme.text3 }}>Maybe later</Text>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
 }
+
+const ratingStyles = StyleSheet.create({
+  close: { position: 'absolute', top: 14, right: 16, width: 28, height: 28, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  iconHalo: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center' },
+  starsRow: { flexDirection: 'row', gap: 4, marginTop: 18, marginBottom: 10 },
+  starBtn: { padding: 2 },
+});
 
 /* ---------- Empty State ---------- */
 // Maps the legacy `icon` prop (and list icons) onto a custom illustration.

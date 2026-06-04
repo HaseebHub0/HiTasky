@@ -9,6 +9,8 @@ import {
   Easing,
   FlatList,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -518,28 +520,34 @@ export function OnboardingScreen() {
         );
       })}
 
-      <FlatList
-        ref={flatRef}
-        data={panels}
-        extraData={theme}
-        horizontal
-        pagingEnabled
-        scrollEnabled={false}
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(_, i) => String(i)}
-        renderItem={({ item, index }) => (
-          <Animated.View
-            style={{
-              width: SCREEN_W,
-              opacity: index === page ? enter : 1,
-              transform: [{ translateY: index === page ? enter.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) : 0 }],
-            }}
-          >
-            {item}
-          </Animated.View>
-        )}
-        getItemLayout={(_, i) => ({ length: SCREEN_W, offset: SCREEN_W * i, index: i })}
-      />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <FlatList
+          ref={flatRef}
+          data={panels}
+          extraData={theme}
+          horizontal
+          pagingEnabled
+          scrollEnabled={false}
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyExtractor={(_, i) => String(i)}
+          renderItem={({ item, index }) => (
+            <Animated.View
+              style={{
+                width: SCREEN_W,
+                opacity: index === page ? enter : 1,
+                transform: [{ translateY: index === page ? enter.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) : 0 }],
+              }}
+            >
+              {item}
+            </Animated.View>
+          )}
+          getItemLayout={(_, i) => ({ length: SCREEN_W, offset: SCREEN_W * i, index: i })}
+        />
+      </KeyboardAvoidingView>
 
       {done && (
         <Animated.View style={[s.doneOverlay, { backgroundColor: theme.bg, opacity: fadeIn }]}>
@@ -879,7 +887,7 @@ function FeelPanel({ theme, s, next, skip, active }) {
     setShowPet(false);
 
     // Sequence: card enters → ring fills → strike grows → pet pops → particles
-    Animated.timing(cardEntrance, { toValue: 1, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    Animated.timing(cardEntrance, { toValue: 1, duration: 600, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
 
     const t1 = setTimeout(() => {
       // Ring fills

@@ -17,7 +17,7 @@ import { useStore } from '../lib/store.js';
 import { useAppTheme } from '../lib/useTheme.js';
 import { Icon } from '../components/icons.js';
 import { getPet } from '../lib/pets.js';
-import { Pet } from '../components/Pet.js';
+import { Pet, HeaderPet } from '../components/Pet.js';
 import { Kicker, Display } from '../components/ui.js';
 import { FONT, ACCENTS, softOf } from '../theme.js';
 
@@ -30,15 +30,7 @@ function GlassyHeader({ theme, settings, title, onOpenPets, onOpenSettings }) {
   return (
     <View style={s.glassHeader}>
       <View style={s.brandRow}>
-        <Pressable
-          onPress={onOpenPets}
-          hitSlop={8}
-          style={[s.petBtn, { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
-          accessibilityRole="button"
-          accessibilityLabel="Open pet companion selector"
-        >
-          <Pet petId={currentPet} theme={theme} size={26} reactive={false} still={true} />
-        </Pressable>
+        <HeaderPet petId={currentPet} theme={theme} onPress={onOpenPets} />
         <Text style={[s.brandWord, { color: theme.text }]}>{title}</Text>
       </View>
       <View style={s.headerRight}>
@@ -56,66 +48,18 @@ function GlassyHeader({ theme, settings, title, onOpenPets, onOpenSettings }) {
   );
 }
 
-export function NotesScreen({ onOpenSearch, onOpenPets, onOpenSettings }) {
-  const { state, actions } = useStore();
+export function NotesScreen({ onOpenSearch, onOpenPets, onOpenSettings, onOpenNote }) {
+  const { state } = useStore();
   const theme = useAppTheme();
   const notes = state.notes || [];
-
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingNote, setEditingNote] = useState(null); // null means adding a new note
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [accent, setAccent] = useState(ACCENTS[0]);
+  const [notesLimit, setNotesLimit] = React.useState(12);
 
   const s = makeStyles(theme);
 
-  const openAddNote = () => {
-    setEditingNote(null);
-    setTitle('');
-    setContent('');
-    setAccent(theme.accent || ACCENTS[0]);
-    setEditorOpen(true);
-  };
-
-  const openEditNote = (note) => {
-    setEditingNote(note);
-    setTitle(note.title);
-    setContent(note.content);
-    setAccent(note.accent);
-    setEditorOpen(true);
-  };
-
-  const saveNote = () => {
-    if (!title.trim() && !content.trim()) {
-      setEditorOpen(false);
-      return;
-    }
-    if (editingNote) {
-      actions.updateNote(editingNote.id, {
-        title: title.trim(),
-        content: content.trim(),
-        accent,
-      });
-    } else {
-      actions.addNote({
-        title: title.trim(),
-        content: content.trim(),
-        accent,
-      });
-    }
-    setEditorOpen(false);
-  };
-
-  const deleteNote = () => {
-    if (editingNote) {
-      actions.deleteNote(editingNote.id);
-    }
-    setEditorOpen(false);
-  };
-
   // Group notes into 2 columns for a clean grid layout
-  const col1 = notes.filter((_, idx) => idx % 2 === 0);
-  const col2 = notes.filter((_, idx) => idx % 2 !== 0);
+  const visibleNotes = notes.slice(0, notesLimit);
+  const col1 = visibleNotes.filter((_, idx) => idx % 2 === 0);
+  const col2 = visibleNotes.filter((_, idx) => idx % 2 !== 0);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -127,13 +71,16 @@ export function NotesScreen({ onOpenSearch, onOpenPets, onOpenSettings }) {
         <GlassyHeader
           theme={theme}
           settings={state.settings}
-          title="Notes"
+          title="Hi Tasky"
           onOpenPets={onOpenPets}
           onOpenSettings={onOpenSettings}
         />
 
-        {/* Search Bar at the top */}
-        <Pressable onPress={onOpenSearch} style={s.searchBar}>
+        {/* Search Kicker */}
+        <Pressable
+          style={[s.searchBar, { backgroundColor: theme.surface, borderColor: theme.hairline2 }]}
+          onPress={onOpenSearch}
+        >
           <Icon.search size={16} color={theme.text3} />
           <Text style={s.searchPlaceholder}>Search tasks...</Text>
         </Pressable>
@@ -143,86 +90,38 @@ export function NotesScreen({ onOpenSearch, onOpenPets, onOpenSettings }) {
           {/* Column 1 */}
           <View style={s.gridCol}>
             {/* Add note card as the first item */}
-            <Pressable onPress={openAddNote} style={[s.noteCard, s.addNoteCard]}>
+            <Pressable onPress={() => onOpenNote(null)} style={[s.noteCard, s.addNoteCard]}>
               <Icon.plus size={20} color={theme.text3} />
               <Text style={[s.addNoteText, { color: theme.text3 }]}>New note...</Text>
             </Pressable>
 
             {col1.map((note) => (
-              <NoteCard key={note.id} note={note} theme={theme} onPress={() => openEditNote(note)} />
+              <NoteCard key={note.id} note={note} theme={theme} onPress={() => onOpenNote(note)} />
             ))}
           </View>
 
           {/* Column 2 */}
           <View style={s.gridCol}>
             {col2.map((note) => (
-              <NoteCard key={note.id} note={note} theme={theme} onPress={() => openEditNote(note)} />
+              <NoteCard key={note.id} note={note} theme={theme} onPress={() => onOpenNote(note)} />
             ))}
             {notes.length === 0 && (
               <View style={s.emptyColumnSpacer} />
             )}
-          </View>
         </View>
+      </View>
+
+        {notes.length > notesLimit && (
+          <Pressable
+            onPress={() => setNotesLimit((prev) => prev + 12)}
+            style={s.loadMoreBtn}
+          >
+            <Text style={s.loadMoreText}>Show older notes ({notes.length - notesLimit} remaining)</Text>
+          </Pressable>
+        )}
 
         <View style={{ height: 120 }} />
       </ScrollView>
-
-      {/* Editor Modal */}
-      <Modal visible={editorOpen} transparent animationType="fade" onRequestClose={saveNote}>
-        <Pressable style={s.scrim} onPress={saveNote} />
-        <View style={s.centerWrap} pointerEvents="box-none">
-          <View style={s.dialog}>
-            <Text style={[s.dialogTitle, { color: theme.text }]}>
-              {editingNote ? 'Edit note' : 'New note'}
-            </Text>
-
-            <TextInput
-              style={[s.input, s.titleInput, { color: theme.text, borderColor: theme.hairline2 }]}
-              placeholder="Title"
-              placeholderTextColor={theme.text4}
-              value={title}
-              onChangeText={setTitle}
-              selectionColor={accent}
-            />
-
-            <TextInput
-              style={[s.input, s.contentInput, { color: theme.text, borderColor: theme.hairline2 }]}
-              placeholder="Write something..."
-              placeholderTextColor={theme.text4}
-              value={content}
-              onChangeText={setContent}
-              multiline
-              textAlignVertical="top"
-              selectionColor={accent}
-            />
-
-            {/* Note color picker */}
-            <View style={s.swatchRow}>
-              {ACCENTS.map((c) => (
-                <Pressable
-                  key={c}
-                  onPress={() => setAccent(c)}
-                  style={[s.swatch, { backgroundColor: c }, accent === c && s.swatchOn]}
-                />
-              ))}
-            </View>
-
-            <View style={s.btnRow}>
-              {editingNote && (
-                <Pressable style={[s.btn, s.deleteBtn]} onPress={deleteNote}>
-                  <Text style={s.deleteBtnText}>Delete</Text>
-                </Pressable>
-              )}
-              <Pressable style={[s.btn, { backgroundColor: theme.surface2 }]} onPress={saveNote}>
-                <Text style={{ fontFamily: FONT.sansBold, fontSize: 14, color: theme.text2 }}>Close</Text>
-              </Pressable>
-              <Pressable style={[s.btn, { backgroundColor: accent }]} onPress={saveNote}>
-                <Text style={{ fontFamily: FONT.sansBold, fontSize: 14, color: theme.mode === 'light' ? '#FFF' : '#1C1308' }}>Save</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -446,6 +345,22 @@ function makeStyles(t) {
       fontFamily: FONT.sansBold,
       fontSize: 14,
       color: '#fff',
+    },
+    loadMoreBtn: {
+      paddingVertical: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: t.radius,
+      backgroundColor: t.surface2,
+      marginTop: 20,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: t.hairline,
+    },
+    loadMoreText: {
+      fontFamily: FONT.sansSemi,
+      fontSize: 12.5,
+      color: t.text3,
     },
   });
 }

@@ -6,7 +6,22 @@
 
 import { getPet, DEFAULT_PET } from './lib/pets.js';
 
-export const ACCENTS = ['#E58A4B', '#E0A24A', '#C25A4E', '#7E8C5A', '#5A7E8C', '#9A6A8C'];
+export const ACCENTS = [
+  // Original six
+  '#E58A4B', // ember orange
+  '#E0A24A', // amber
+  '#C25A4E', // clay red
+  '#7E8C5A', // olive
+  '#5A7E8C', // steel teal
+  '#9A6A8C', // plum
+  // New six — extends the "Custom accent themes" Pro palette
+  '#6FB890', // jade
+  '#7FA8D6', // sky
+  '#B57CA3', // orchid
+  '#A48FD0', // lavender
+  '#D98C5F', // terracotta
+  '#5FA8A0', // seafoam
+];
 
 const DARK = {
   bg: '#18140F',

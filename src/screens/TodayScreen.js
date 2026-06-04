@@ -16,7 +16,7 @@ import { Wordmark } from '../components/Wordmark.js';
 import { Icon } from '../components/icons.js';
 import { TaskCard } from '../components/TaskCard.js';
 import { PetCompanion } from '../components/PetCompanion.js';
-import { Pet } from '../components/Pet.js';
+import { Pet, HeaderPet } from '../components/Pet.js';
 import { getPet } from '../lib/pets.js';
 import { Kicker, Display, H2, Meta, EmptyState } from '../components/ui.js';
 import { FONT } from '../theme.js';
@@ -27,15 +27,7 @@ function TodayHeader({ theme, settings, s, onOpenPets, onOpenSettings }) {
   return (
     <View style={s.header}>
       <View style={s.brandRow}>
-        <Pressable
-          onPress={onOpenPets}
-          hitSlop={8}
-          style={[s.petBtn, { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
-          accessibilityRole="button"
-          accessibilityLabel="Open pet companion selector"
-        >
-          <Pet petId={currentPet} theme={theme} size={26} reactive={false} still={true} />
-        </Pressable>
+        <HeaderPet petId={currentPet} theme={theme} onPress={onOpenPets} />
         <Wordmark theme={theme} size={22} />
       </View>
       <View style={s.headerRight}>
@@ -59,6 +51,9 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
   const tasks = todayTasks(state);
   const done = doneGroups(state).today;
   const scheduled = scheduledTasks(state);
+  const [doneLimit, setDoneLimit] = React.useState(10);
+  const [restLimit, setRestLimit] = React.useState(15);
+  const [scheduledLimit, setScheduledLimit] = React.useState(15);
 
   const complete = useCallback((task) => actions.toggleTask(task.id, true), []);
   const uncomplete = useCallback((task) => actions.toggleTask(task.id, false), []);
@@ -161,7 +156,7 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
                 NEXT · <Text style={{ color: theme.accent }}>{rest.length} left</Text>
               </Text>
             </View>
-            {rest.map((task) => (
+            {rest.slice(0, restLimit).map((task) => (
               <TaskCard
                 key={task.id}
                 task={task}
@@ -172,6 +167,14 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
                 onOpen={onOpenTask}
               />
             ))}
+            {rest.length > restLimit && (
+              <Pressable
+                onPress={() => setRestLimit((prev) => prev + 20)}
+                style={s.loadMoreBtn}
+              >
+                <Text style={s.loadMoreText}>Show more tasks ({rest.length - restLimit} remaining)</Text>
+              </Pressable>
+            )}
           </>
         )}
 
@@ -183,7 +186,7 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
                 SCHEDULED · <Text style={{ color: theme.accent }}>{scheduled.length} upcoming</Text>
               </Text>
             </View>
-            {scheduled.map((task) => (
+            {scheduled.slice(0, scheduledLimit).map((task) => (
               <TaskCard
                 key={task.id}
                 task={task}
@@ -194,6 +197,14 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
                 onOpen={onOpenTask}
               />
             ))}
+            {scheduled.length > scheduledLimit && (
+              <Pressable
+                onPress={() => setScheduledLimit((prev) => prev + 20)}
+                style={s.loadMoreBtn}
+              >
+                <Text style={s.loadMoreText}>Show more upcoming tasks ({scheduled.length - scheduledLimit} remaining)</Text>
+              </Pressable>
+            )}
           </>
         )}
 
@@ -204,7 +215,7 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
               <Text style={s.kicker}>DONE · {done.length}</Text>
               <View style={[s.hairline, { backgroundColor: theme.hairline }]} />
             </View>
-            {done.map((t) => (
+            {done.slice(0, doneLimit).map((t) => (
               <TaskCard
                 key={t.id}
                 task={t}
@@ -215,6 +226,14 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
                 onOpen={onOpenTask}
               />
             ))}
+            {done.length > doneLimit && (
+              <Pressable
+                onPress={() => setDoneLimit((prev) => prev + 15)}
+                style={s.loadMoreBtn}
+              >
+                <Text style={s.loadMoreText}>Show older completed tasks ({done.length - doneLimit} remaining)</Text>
+              </Pressable>
+            )}
           </>
         )}
 
@@ -295,6 +314,22 @@ function makeStyles(t) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 38,
+    },
+    loadMoreBtn: {
+      paddingVertical: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: t.radius,
+      backgroundColor: t.surface2,
+      marginTop: 8,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: t.hairline,
+    },
+    loadMoreText: {
+      fontFamily: FONT.sansSemi,
+      fontSize: 12.5,
+      color: t.text3,
     },
   });
 }

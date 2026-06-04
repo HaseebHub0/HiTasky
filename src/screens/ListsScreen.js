@@ -19,7 +19,7 @@ import { Icon } from '../components/icons.js';
 import { Wordmark } from '../components/Wordmark.js';
 import { TaskCard } from '../components/TaskCard.js';
 import { getPet } from '../lib/pets.js';
-import { Pet } from '../components/Pet.js';
+import { Pet, HeaderPet } from '../components/Pet.js';
 import { Kicker, Display, H2, ConfirmDialog, EmptyState } from '../components/ui.js';
 import { FONT, ACCENTS, softOf } from '../theme.js';
 
@@ -38,15 +38,7 @@ function ListsOverviewHeader({ theme, settings, s, onOpenPets, onOpenSettings })
   return (
     <View style={s.header}>
       <View style={s.brandRow}>
-        <Pressable
-          onPress={onOpenPets}
-          hitSlop={8}
-          style={[s.petBtn, { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
-          accessibilityRole="button"
-          accessibilityLabel="Open pet companion selector"
-        >
-          <Pet petId={currentPet} theme={theme} size={26} reactive={false} still={true} />
-        </Pressable>
+        <HeaderPet petId={currentPet} theme={theme} onPress={onOpenPets} />
         <Wordmark theme={theme} size={22} />
       </View>
       <View style={s.headerRight}>
@@ -202,6 +194,8 @@ export function ListDetail({ listId, onBack, onOpenTask, onAddTask, onTriggerPay
   const theme = useAppTheme();
   const [editing, setEditing] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [doneLimit, setDoneLimit] = useState(10);
+  const [activeLimit, setActiveLimit] = useState(20);
 
   const isInbox = !listId;
   const list = isInbox ? null : state.lists.find((l) => l.id === listId);
@@ -226,65 +220,57 @@ export function ListDetail({ listId, onBack, onOpenTask, onAddTask, onTriggerPay
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+      {/* Header bubble (consistent single-row) */}
       <View style={s.header}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-          <Pressable style={s.backBtn} onPress={onBack}>
-            <Icon.chevLeft size={16} color={theme.text3} />
-            <Text style={[s.backText, { color: theme.text3 }]}>Lists</Text>
+        <Pressable style={s.backBtn} onPress={onBack}>
+          <Icon.chevLeft size={16} color={theme.text3} />
+          <Text style={[s.backText, { color: theme.text3 }]}>Lists</Text>
+        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <HeaderPet petId={state.settings.pet || 'zen'} theme={theme} onPress={onOpenPets} />
+          <Pressable
+            onPress={onOpenSettings}
+            hitSlop={8}
+            style={s.settingsBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Open settings"
+          >
+            <Icon.sliders size={18} color={theme.text3} />
           </Pressable>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Pressable
-              onPress={onOpenPets}
-              hitSlop={8}
-              style={[s.petBtn, { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
-              accessibilityRole="button"
-              accessibilityLabel="Open pet companion selector"
-            >
-              <Pet petId={state.settings.pet || 'zen'} theme={theme} size={26} reactive={false} still={true} />
-            </Pressable>
-            <Pressable
-              onPress={onOpenSettings}
-              hitSlop={8}
-              style={s.settingsBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Open settings"
-            >
-              <Icon.sliders size={18} color={theme.text3} />
-            </Pressable>
-          </View>
         </View>
+      </View>
 
-        <View style={s.headerRow}>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              {list && (() => {
-                const DetailIcon = Icon[list.icon] || Icon.lists;
-                return <DetailIcon size={18} color={list.accent} />;
-              })()}
-              <Kicker style={{ color: theme.text3, marginBottom: 0 }}>
-                {isInbox ? 'Unfiled' : 'Project'}
-              </Kicker>
-            </View>
-            <Display style={{ color: theme.text }}>{isInbox ? 'Inbox' : list.name}</Display>
-            <View style={s.progress}>
-              <Text style={s.progressText}>
-                {total === 0 ? (
-                  'Nothing here yet'
-                ) : (
-                  <>
-                    <Text style={{ fontFamily: FONT.serif, fontSize: 19, color: theme.accent }}>{doneCount}</Text>
-                    <Text style={{ color: theme.text3 }}> of {total} done</Text>
-                  </>
-                )}
-              </Text>
-            </View>
+      {/* List information & settings (spacious subheader area) */}
+      <View style={s.metaCardRow}>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            {list && (() => {
+              const DetailIcon = Icon[list.icon] || Icon.lists;
+              return <DetailIcon size={18} color={list.accent} />;
+            })()}
+            <Kicker style={{ color: theme.text3, marginBottom: 0 }}>
+              {isInbox ? 'Unfiled' : 'Project'}
+            </Kicker>
           </View>
-          {!isInbox && (
-            <Pressable onPress={() => setEditing(true)} hitSlop={10} style={[s.settingsBtn, { width: 38, height: 38, borderRadius: 12 }]}>
-              <Icon.gear size={20} color={theme.text3} />
-            </Pressable>
-          )}
+          <Display style={{ color: theme.text }}>{isInbox ? 'Inbox' : list.name}</Display>
+          <View style={s.progress}>
+            <Text style={s.progressText}>
+              {total === 0 ? (
+                'Nothing here yet'
+              ) : (
+                <>
+                  <Text style={{ fontFamily: FONT.serif, fontSize: 19, color: theme.accent }}>{doneCount}</Text>
+                  <Text style={{ color: theme.text3 }}> of {total} done</Text>
+                </>
+              )}
+            </Text>
+          </View>
         </View>
+        {!isInbox && (
+          <Pressable onPress={() => setEditing(true)} hitSlop={10} style={[s.settingsBtn, { width: 38, height: 38, borderRadius: 12, backgroundColor: theme.surface2 }]}>
+            <Icon.gear size={20} color={theme.text3} />
+          </Pressable>
+        )}
       </View>
 
       {/* Add Task Card */}
@@ -308,16 +294,26 @@ export function ListDetail({ listId, onBack, onOpenTask, onAddTask, onTriggerPay
 
       {/* Active tasks */}
       {active.length > 0 ? (
-        active.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            theme={theme}
-            settings={state.settings}
-            onComplete={complete}
-            onOpen={onOpenTask}
-          />
-        ))
+        <>
+          {active.slice(0, activeLimit).map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              theme={theme}
+              settings={state.settings}
+              onComplete={complete}
+              onOpen={onOpenTask}
+            />
+          ))}
+          {active.length > activeLimit && (
+            <Pressable
+              onPress={() => setActiveLimit((prev) => prev + 20)}
+              style={s.loadMoreBtn}
+            >
+              <Text style={s.loadMoreText}>Show more active tasks ({active.length - activeLimit} remaining)</Text>
+            </Pressable>
+          )}
+        </>
       ) : total === 0 ? (
         <EmptyState
           title="A blank page."
@@ -334,8 +330,8 @@ export function ListDetail({ listId, onBack, onOpenTask, onAddTask, onTriggerPay
       {/* Done tasks */}
       {done.length > 0 && (
         <>
-          <Kicker style={{ color: theme.text3, marginTop: 28, marginBottom: 6 }}>Done</Kicker>
-          {done.map((t) => (
+          <Kicker style={{ color: theme.text3, marginTop: 28, marginBottom: 6 }}>Done · {done.length}</Kicker>
+          {done.slice(0, doneLimit).map((t) => (
             <TaskCard
               key={t.id}
               task={t}
@@ -345,6 +341,14 @@ export function ListDetail({ listId, onBack, onOpenTask, onAddTask, onTriggerPay
               onOpen={onOpenTask}
             />
           ))}
+          {done.length > doneLimit && (
+            <Pressable
+              onPress={() => setDoneLimit((prev) => prev + 15)}
+              style={s.loadMoreBtn}
+            >
+              <Text style={s.loadMoreText}>Show older completed tasks ({done.length - doneLimit} remaining)</Text>
+            </Pressable>
+          )}
         </>
       )}
 
@@ -430,8 +434,16 @@ function makeDetailStyles(t) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginTop: 12 },
-    progress: { marginTop: 10 },
+    metaCardRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: 12,
+      paddingHorizontal: 4,
+      marginBottom: 24,
+      marginTop: 4,
+    },
+    progress: { marginTop: 6 },
     progressText: { fontFamily: FONT.sansMedium, fontSize: 13, color: t.text3 },
     addCard: {
       borderWidth: 1.5,
@@ -451,6 +463,22 @@ function makeDetailStyles(t) {
     addCardText: {
       fontFamily: FONT.sansSemi,
       fontSize: 14.5,
+    },
+    loadMoreBtn: {
+      paddingVertical: 13,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: t.radius,
+      backgroundColor: t.surface2,
+      marginTop: 8,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: t.hairline,
+    },
+    loadMoreText: {
+      fontFamily: FONT.sansSemi,
+      fontSize: 12.5,
+      color: t.text3,
     },
   });
 }
@@ -555,7 +583,7 @@ function makeDialogStyles(t) {
       paddingVertical: 12,
       marginBottom: 16,
     },
-    swatchRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+    swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, rowGap: 12, marginBottom: 16 },
     swatchPick: { width: 30, height: 30, borderRadius: 15 },
     swatchOn: { borderWidth: 3, borderColor: '#fff' },
     iconRow: { flexDirection: 'row', gap: 10, marginBottom: 20, flexWrap: 'wrap' },
