@@ -13,10 +13,18 @@ expo-env.d.ts
 .kotlin/
 *.orig.*
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
 *.mobileprovision
+
+# Secrets — NEVER commit these (keep local / use EAS secrets)
+google-services.json
+GoogleService-Info.plist
+credentials.json
+.env
+.env.*
 
 # Metro
 .metro-health-check*
