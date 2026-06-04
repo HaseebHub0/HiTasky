@@ -13,7 +13,7 @@
 // only after you've test-purchased on an internal track.
 //
 // (To test the trial/paywall flow during development, flip locally.)
-export const FREE_FOR_ALL = true;
+export const FREE_FOR_ALL = false;
 
 // ---- 7-day no-card trial (Phase 1) ----
 // Full Pro access for this many days from first launch, no card up

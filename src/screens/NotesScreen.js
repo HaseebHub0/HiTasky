@@ -128,7 +128,10 @@ export function NotesScreen({ onOpenSearch, onOpenPets, onOpenSettings, onOpenNo
 
 function NoteCard({ note, theme, onPress }) {
   const s = makeStyles(theme);
-  const noteAccentSoft = softOf(note.accent, theme.mode === 'light' ? 0.08 : 0.12);
+  const accent = note.accent || ACCENTS[0];
+  const title = (note.title || '').trim();
+  const content = (note.content || '').trim();
+  const noteAccentSoft = softOf(accent, theme.mode === 'light' ? 0.08 : 0.12);
 
   return (
     <Pressable
@@ -137,21 +140,21 @@ function NoteCard({ note, theme, onPress }) {
         s.noteCard,
         {
           backgroundColor: theme.surface,
-          borderColor: note.accent,
-          shadowColor: note.accent,
+          borderColor: accent,
+          shadowColor: accent,
         },
       ]}
     >
       {/* Background tint overlay */}
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor: noteAccentSoft, borderRadius: theme.radius - 2 }]} />
-      {note.title.trim() ? (
+      {title ? (
         <Text style={[s.noteTitle, { color: theme.text }]} numberOfLines={2}>
-          {note.title}
+          {title}
         </Text>
       ) : null}
-      {note.content.trim() ? (
+      {content ? (
         <Text style={[s.noteContent, { color: theme.text2 }]} numberOfLines={6}>
-          {note.content}
+          {content}
         </Text>
       ) : null}
     </Pressable>

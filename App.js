@@ -388,7 +388,7 @@ function AppShell() {
         onOpenSearch={() => setSearchOpen(true)}
         onOpenPets={() => setPetShopOpen(true)}
         onOpenSettings={() => setTab('settings')}
-        onOpenNote={openEditNote}
+        onOpenNote={(note) => (note ? openEditNote(note) : openAddNote())}
       />
     );
   } else if (tab === 'done') {
