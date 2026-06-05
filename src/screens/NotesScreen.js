@@ -53,13 +53,42 @@ export function NotesScreen({ onOpenSearch, onOpenPets, onOpenSettings, onOpenNo
   const theme = useAppTheme();
   const notes = state.notes || [];
   const [notesLimit, setNotesLimit] = React.useState(12);
+  const [query, setQuery] = React.useState('');
 
   const s = makeStyles(theme);
 
-  // Group notes into 2 columns for a clean grid layout
-  const visibleNotes = notes.slice(0, notesLimit);
-  const col1 = visibleNotes.filter((_, idx) => idx % 2 === 0);
-  const col2 = visibleNotes.filter((_, idx) => idx % 2 !== 0);
+  // Notes-only search — matches against BOTH title and content.
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? notes.filter(
+        (n) =>
+          (n.title || '').toLowerCase().includes(q) ||
+          (n.content || '').toLowerCase().includes(q)
+      )
+    : notes;
+
+  const visibleNotes = filtered.slice(0, notesLimit);
+
+  // Build one ordered list so the "New note" card always comes AFTER the
+  // last note (not first). Hidden while actively searching so results stay clean.
+  const items = visibleNotes.map((n) => ({ key: n.id, type: 'note', note: n }));
+  if (!q) items.push({ key: '__add__', type: 'add' });
+  const col1 = items.filter((_, idx) => idx % 2 === 0);
+  const col2 = items.filter((_, idx) => idx % 2 !== 0);
+
+  const renderItem = (it) =>
+    it.type === 'add' ? (
+      <Pressable
+        key={it.key}
+        onPress={() => onOpenNote(null)}
+        style={[s.noteCard, s.addNoteCard]}
+      >
+        <Icon.plus size={20} color={theme.text3} />
+        <Text style={[s.addNoteText, { color: theme.text3 }]}>New note...</Text>
+      </Pressable>
+    ) : (
+      <NoteCard key={it.key} note={it.note} theme={theme} onPress={() => onOpenNote(it.note)} />
+    );
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -67,6 +96,7 @@ export function NotesScreen({ onOpenSearch, onOpenPets, onOpenSettings, onOpenNo
         style={s.container}
         contentContainerStyle={s.scroll}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <GlassyHeader
           theme={theme}
@@ -76,47 +106,45 @@ export function NotesScreen({ onOpenSearch, onOpenPets, onOpenSettings, onOpenNo
           onOpenSettings={onOpenSettings}
         />
 
-        {/* Search Kicker */}
-        <Pressable
-          style={[s.searchBar, { backgroundColor: theme.surface, borderColor: theme.hairline2 }]}
-          onPress={onOpenSearch}
-        >
+        {/* Notes search — searches titles & descriptions of notes only */}
+        <View style={[s.searchBar, { backgroundColor: theme.surface, borderColor: theme.hairline2 }]}>
           <Icon.search size={16} color={theme.text3} />
-          <Text style={s.searchPlaceholder}>Search tasks...</Text>
-        </Pressable>
-
-        {/* Notes Grid */}
-        <View style={s.gridRow}>
-          {/* Column 1 */}
-          <View style={s.gridCol}>
-            {/* Add note card as the first item */}
-            <Pressable onPress={() => onOpenNote(null)} style={[s.noteCard, s.addNoteCard]}>
-              <Icon.plus size={20} color={theme.text3} />
-              <Text style={[s.addNoteText, { color: theme.text3 }]}>New note...</Text>
+          <TextInput
+            style={[s.searchInput, { color: theme.text }]}
+            placeholder="Search notes..."
+            placeholderTextColor={theme.text3}
+            value={query}
+            onChangeText={setQuery}
+            returnKeyType="search"
+            autoCorrect={false}
+          />
+          {query.length > 0 && (
+            <Pressable onPress={() => setQuery('')} hitSlop={10}>
+              <Text style={[s.searchClear, { color: theme.text3 }]}>✕</Text>
             </Pressable>
-
-            {col1.map((note) => (
-              <NoteCard key={note.id} note={note} theme={theme} onPress={() => onOpenNote(note)} />
-            ))}
-          </View>
-
-          {/* Column 2 */}
-          <View style={s.gridCol}>
-            {col2.map((note) => (
-              <NoteCard key={note.id} note={note} theme={theme} onPress={() => onOpenNote(note)} />
-            ))}
-            {notes.length === 0 && (
-              <View style={s.emptyColumnSpacer} />
-            )}
+          )}
         </View>
-      </View>
 
-        {notes.length > notesLimit && (
+        {/* No-results message when searching */}
+        {q && filtered.length === 0 ? (
+          <View style={s.noResults}>
+            <Text style={[s.noResultsText, { color: theme.text3 }]}>
+              No notes match “{query.trim()}”.
+            </Text>
+          </View>
+        ) : (
+          <View style={s.gridRow}>
+            <View style={s.gridCol}>{col1.map(renderItem)}</View>
+            <View style={s.gridCol}>{col2.map(renderItem)}</View>
+          </View>
+        )}
+
+        {filtered.length > notesLimit && (
           <Pressable
             onPress={() => setNotesLimit((prev) => prev + 12)}
             style={s.loadMoreBtn}
           >
-            <Text style={s.loadMoreText}>Show older notes ({notes.length - notesLimit} remaining)</Text>
+            <Text style={s.loadMoreText}>Show older notes ({filtered.length - notesLimit} remaining)</Text>
           </Pressable>
         )}
 
@@ -228,6 +256,25 @@ function makeStyles(t) {
       fontFamily: FONT.sansMedium,
       fontSize: 14,
       color: t.text3,
+    },
+    searchInput: {
+      flex: 1,
+      fontFamily: FONT.sansMedium,
+      fontSize: 14,
+      padding: 0,
+    },
+    searchClear: {
+      fontFamily: FONT.sansBold,
+      fontSize: 13,
+      paddingHorizontal: 2,
+    },
+    noResults: {
+      paddingVertical: 40,
+      alignItems: 'center',
+    },
+    noResultsText: {
+      fontFamily: FONT.sansMedium,
+      fontSize: 14,
     },
     gridRow: {
       flexDirection: 'row',

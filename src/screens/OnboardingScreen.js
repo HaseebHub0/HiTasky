@@ -1237,11 +1237,14 @@ function PurchasePanel({ theme, s, finish }) {
         </Text>
 
         <View style={s.priceRow}>
-          <Text style={[s.priceAmt, { color: theme.text }]}>$19</Text>
+          <Text style={[s.priceAmt, { color: theme.text }]}>$4.99</Text>
           <View style={[s.priceBadge, { backgroundColor: theme.accentSoft }]}>
             <Text style={[s.priceLabel, { color: theme.accent }]}>ONE TIME</Text>
           </View>
         </View>
+        <Text style={[s.priceNote, { color: theme.text3 }]}>
+          One-time payment · no subscription, ever
+        </Text>
 
         <View style={{ marginTop: 24, gap: 14 }}>
           <Bullet>
@@ -1253,7 +1256,7 @@ function PurchasePanel({ theme, s, finish }) {
           </Bullet>
         </View>
       </View>
-      <CTA label="Unlock HiTasky  ·  $19" theme={theme} onPress={() => finish(true)} />
+      <CTA label="Unlock HiTasky  ·  $4.99" theme={theme} onPress={() => finish(true)} />
       <CTA label="Start the free trial" ghost theme={theme} onPress={() => finish(false)} />
     </View>
   );
@@ -1352,6 +1355,7 @@ function makeStyles(t) {
     // purchase
     priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10, marginTop: 22 },
     priceAmt: { fontFamily: FONT.serif, fontSize: 52, lineHeight: 52 },
+    priceNote: { fontFamily: FONT.sansMedium, fontSize: 12.5, marginTop: 10, letterSpacing: 0.2 },
     priceBadge: { paddingVertical: 6, paddingHorizontal: 11, borderRadius: 100 },
     priceLabel: { fontFamily: FONT.sansBold, fontSize: 12, letterSpacing: 1.2 },
     bullet: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
