@@ -22,6 +22,7 @@ import { ACCENTS } from '../theme.js';
 import { scheduleReminder, cancelReminder, rescheduleAllReminders } from './notifications.js';
 import { FREE_FOR_ALL } from './config.js';
 import { initTrial } from './trial.js';
+import { claimFounderSlot } from './earlyAccess.js';
 import { track } from './analytics.js';
 import { getStoreKey } from './storeKey.js';
 import { encryptString, decryptString } from './aes.js';
@@ -389,6 +390,8 @@ export function StoreProvider({ children, fallback = null }) {
   const [trial, setTrial] = useState({
     trialActive: false, expired: true, tampered: false, daysLeft: 0, installedAt: null,
   });
+  // "Founders' 40" early-access verdict (server-confirmed, cached offline).
+  const [founder, setFounder] = useState(false);
   const hydrated = useRef(false);
   const persistTimer = useRef(null);
 
@@ -403,6 +406,18 @@ export function StoreProvider({ children, fallback = null }) {
         if (t.justStarted) track('trial_started', { trialDays: 7 });
       } catch (e) {
         console.warn('[Trial] init failed:', e.message);
+      }
+
+      // "Founders' 40": claim a lifetime free slot on first launch (cached
+      // forever after one server confirmation; safe no-op when disabled).
+      try {
+        const f = await claimFounderSlot();
+        if (f.founder) {
+          setFounder(true);
+          if (f.checked) track('founder_granted', { rank: f.rank });
+        }
+      } catch (e) {
+        console.warn('[Founder] claim failed:', e.message);
       }
 
       let initial = await loadState();
@@ -478,7 +493,8 @@ export function StoreProvider({ children, fallback = null }) {
     // is never mutated, so real purchases survive and trial expiry
     // cleanly re-locks the app (paywall fires off `trialExpired`).
     const realPurchase = !!(state && state.settings.purchased);
-    const isPro = realPurchase || FREE_FOR_ALL || trial.trialActive;
+    // A "Founders' 40" member is Pro for life, exactly like a buyer.
+    const isPro = realPurchase || founder || FREE_FOR_ALL || trial.trialActive;
     const effState =
       state && isPro && !state.settings.purchased
         ? { ...state, settings: { ...state.settings, purchased: true } }
@@ -491,17 +507,18 @@ export function StoreProvider({ children, fallback = null }) {
       entitlement: {
         isPro,
         purchased: realPurchase,
+        founder,
         trialActive: trial.trialActive,
         // `inTrial`: show the countdown banner only when monetization is
-        // actually live (FREE_FOR_ALL off), the user hasn't bought, and
-        // the trial clock is still running.
-        inTrial: !realPurchase && !FREE_FOR_ALL && trial.trialActive,
-        trialExpired: !realPurchase && !FREE_FOR_ALL && trial.expired,
+        // actually live (FREE_FOR_ALL off), the user is NOT a founder and
+        // hasn't bought, and the trial clock is still running.
+        inTrial: !realPurchase && !founder && !FREE_FOR_ALL && trial.trialActive,
+        trialExpired: !realPurchase && !founder && !FREE_FOR_ALL && trial.expired,
         trialDaysLeft: trial.daysLeft,
         trialTampered: trial.tampered,
       },
     };
-  }, [state, trial]);
+  }, [state, trial, founder]);
 
   if (!ready || !state) return fallback;
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>;

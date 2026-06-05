@@ -13,12 +13,27 @@
 // only after you've test-purchased on an internal track.
 //
 // (To test the trial/paywall flow during development, flip locally.)
-export const FREE_FOR_ALL = false;
+export const FREE_FOR_ALL = true;
 
 // ---- 7-day no-card trial (Phase 1) ----
 // Full Pro access for this many days from first launch, no card up
 // front. After it lapses, the FOMO paywall gates premium features.
 export const TRIAL_DAYS = 7;
+
+// ---- "Founders' 40" early-access (first N installs free forever) ----
+// The first FOUNDER_LIMIT people to open the app get lifetime Pro for
+// free. Everyone after them gets the normal 7-day trial → $4.99 unlock.
+//
+// How it works: on first launch the app calls EARLY_ACCESS_URL (a tiny
+// Google Apps Script web app) which ATOMICALLY hands out the next slot
+// number and says whether it's within the first 40. The result is cached
+// locally forever, so it keeps working offline after the one-time check.
+//
+// SAFE FALLBACK: if EARLY_ACCESS_URL is empty or the network fails, the
+// user is simply NOT marked a founder (they fall to the normal trial).
+// We never falsely grant Pro, and never lock anyone out.
+export const FOUNDER_LIMIT = 40;
+export const EARLY_ACCESS_URL = ''; // paste your Apps Script /exec URL
 
 // ---- Freemium tier limits (enforced when FREE_FOR_ALL === false) ----
 export const FREE_LIMITS = {

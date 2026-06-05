@@ -25,9 +25,6 @@
       "permissions": [
         "POST_NOTIFICATIONS",
         "SCHEDULE_EXACT_ALARM",
-        "RECEIVE_BOOT_COMPLETED",
-        "POST_NOTIFICATIONS",
-        "SCHEDULE_EXACT_ALARM",
         "RECEIVE_BOOT_COMPLETED"
       ],
       "adaptiveIcon": {
