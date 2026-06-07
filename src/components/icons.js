@@ -226,6 +226,18 @@ export const Icon = {
       </G>
     </S>
   ),
+  pin: ({ size = 18, color = '#999', fill = 'none' }) => (
+    <S width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M16 12V4a1 1 0 00-1-1H9a1 1 0 00-1 1v8l-2 3v1a1 1 0 001 1h4v4l1 1 1-1v-4h4a1 1 0 001-1v-1l-2-3z"
+        stroke={color}
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill={fill}
+      />
+    </S>
+  ),
 };
 
 // HiTasky brand mark — the waving hand, drawn as vector (matches the

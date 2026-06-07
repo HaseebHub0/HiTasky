@@ -32,28 +32,61 @@ export function smartCompare(a, b) {
   return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
 }
 
+export function getSortCompare(state) {
+  const sortBy = state?.settings?.sortBy || 'smart';
+  if (sortBy === 'dueDate') {
+    return (a, b) => {
+      const ta = a.dueAt ? new Date(a.dueAt).getTime() : null;
+      const tb = b.dueAt ? new Date(b.dueAt).getTime() : null;
+      if (ta != null && tb != null) return ta - tb;
+      if (ta != null) return -1;
+      if (tb != null) return 1;
+      const pr = prank(a) - prank(b);
+      if (pr !== 0) return pr;
+      return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+    };
+  }
+  if (sortBy === 'priority') {
+    return (a, b) => {
+      const pr = prank(a) - prank(b);
+      if (pr !== 0) return pr;
+      const ta = a.dueAt ? new Date(a.dueAt).getTime() : null;
+      const tb = b.dueAt ? new Date(b.dueAt).getTime() : null;
+      if (ta != null && tb != null) return ta - tb;
+      if (ta != null) return -1;
+      if (tb != null) return 1;
+      return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+    };
+  }
+  if (sortBy === 'name') {
+    return (a, b) => a.title.localeCompare(b.title);
+  }
+  if (sortBy === 'createdAt') {
+    return (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+  }
+  return smartCompare;
+}
+
 export function activeTasks(state) {
   return state.tasks.filter((t) => !t.isCompleted);
 }
 
-// "Today" focus view: due today or overdue, plus undated tasks created today.
-// The first (lowest sortOrder) becomes the hero "Now" card.
 export function todayTasks(state) {
   return activeTasks(state)
     .filter((t) => isToday(t.dueAt) || isOverdue(t.dueAt) || (!t.dueAt && isToday(t.createdAt)))
-    .sort(smartCompare);
+    .sort(getSortCompare(state));
 }
 
 export function inboxTasks(state) {
   return activeTasks(state)
     .filter((t) => !t.listId)
-    .sort(smartCompare);
+    .sort(getSortCompare(state));
 }
 
 export function tasksForList(state, listId, { includeDone = true } = {}) {
   const all = state.tasks.filter((t) => t.listId === listId);
   return {
-    active: all.filter((t) => !t.isCompleted).sort(smartCompare),
+    active: all.filter((t) => !t.isCompleted).sort(getSortCompare(state)),
     done: includeDone
       ? all
           .filter((t) => t.isCompleted)
@@ -110,5 +143,5 @@ export function scheduledTasks(state) {
       
       return d.getTime() >= startOfTomorrow.getTime();
     })
-    .sort(smartCompare);
+    .sort(getSortCompare(state));
 }

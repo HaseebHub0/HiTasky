@@ -32,6 +32,8 @@ export function recurringLabel(recurring) {
   if (recurring === 'daily') return 'Daily';
   if (recurring === 'weekly') return 'Weekly';
   if (recurring === 'weekdays') return 'Weekdays';
+  if (recurring === 'biweekly') return 'Bi-weekly';
+  if (recurring === 'monthly') return 'Monthly';
   return null;
 }
 

@@ -97,7 +97,7 @@ export function Seg({ options, value, onChange, theme }) {
 }
 
 /* ---------- Toast ---------- */
-export function Toast({ message, theme, onDone, duration = 2200 }) {
+export function Toast({ message, theme, onDone, onUndo, duration = 2200 }) {
   const y = useRef(new Animated.Value(20)).current;
   const op = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -117,10 +117,31 @@ export function Toast({ message, theme, onDone, duration = 2200 }) {
 
   if (!message) return null;
   return (
-    <Animated.View pointerEvents="none" style={[styles.toastWrap, { opacity: op, transform: [{ translateY: y }] }]}>
+    <Animated.View pointerEvents="box-none" style={[styles.toastWrap, { opacity: op, transform: [{ translateY: y }] }]}>
       <View style={[styles.toast, { backgroundColor: theme.surface, borderColor: theme.hairline2 }]}>
         <Icon.tick size={14} color={theme.accent} />
         <Text style={{ fontFamily: FONT.sansSemi, fontSize: 13, color: theme.text }}>{message}</Text>
+        {onUndo && (
+          <Pressable
+            onPress={() => {
+              onUndo();
+              // Hide toast immediately
+              Animated.parallel([
+                Animated.timing(y, { toValue: 20, duration: 150, useNativeDriver: true }),
+                Animated.timing(op, { toValue: 0, duration: 150, useNativeDriver: true }),
+              ]).start(() => onDone());
+            }}
+            style={{
+              marginLeft: 12,
+              paddingVertical: 4,
+              paddingHorizontal: 10,
+              backgroundColor: theme.accentSoft,
+              borderRadius: 8,
+            }}
+          >
+            <Text style={{ fontFamily: FONT.sansBold, fontSize: 12, color: theme.accent }}>Undo</Text>
+          </Pressable>
+        )}
       </View>
     </Animated.View>
   );

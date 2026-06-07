@@ -30,7 +30,7 @@ import { PRO_PRODUCT_ID } from './config.js';
 
 // Base64 RSA public key from Play Console → Monetisation → Licensing.
 // Paste the long base64 string here before your production build.
-const PLAY_PUBLIC_KEY_BASE64 = '';
+const PLAY_PUBLIC_KEY_BASE64 = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmN3Lis8DC8sI97zJk6LQheqY3u7UBiRXI6bGZavGBrraLNEi8Ue8hI9lT2ye0M6X3f+DVBNLIc6E1TAmrfa1TWbMuvq4eBl/QXQMPnhnRZLOtiFwui4BUtUOd4axDSZQBJM/ed0o7gpttOFnSHbu4+ObQPqJ+1IvZ8KbGSRNxI4mS0VN4Se/o5bAeooswAOTpQMgXvLL4pOyFH7k2RL5Ywpdu1pZge2SF1L05dnXDumhhF+AcSZ2mNviqMdCGv+pxceSl0OOYrKxG5QhSddmvHL7d76Q0cZzJ2dUiDpHp1HyCieAgIDM2KBeYc3gDajTIc3v6aVfSO4CywvUEtaUVQIDAQAB';
 
 let RNIap = null;
 try { RNIap = require('react-native-iap'); } catch (_) { RNIap = null; }

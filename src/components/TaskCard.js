@@ -1,9 +1,10 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon } from './icons.js';
 import { Pet } from './Pet.js';
 import { FONT } from '../theme.js';
-import { completionFeedback } from '../lib/feedback.js';
+import { completionFeedback, selectionFeedback } from '../lib/feedback.js';
+import { useStore } from '../lib/store.js';
 import { dueLabel as fmtDue, isOverdue, completedLabel, recurringLabel } from '../lib/date.js';
 import { emitPetReaction } from '../lib/pets.js';
 
@@ -19,6 +20,7 @@ export function TaskCard({
   drag, // long-press handler from the reorderable list
   isActive = false,
 }) {
+  const { actions } = useStore();
   const isNew = Date.now() - new Date(task.createdAt).getTime() < 4000;
 
   const progress = useRef(new Animated.Value(0)).current; // ring fill 0..1
@@ -171,7 +173,7 @@ export function TaskCard({
     }, 1050); // longer hold lets the user register the satisfying feedback
   };
 
-  const s = makeStyles(theme);
+  const s = useMemo(() => makeStyles(theme), [theme]);
 
   // ---- done variant (static completed card shown in logs/lists) ----
   if (done) {
@@ -193,6 +195,25 @@ export function TaskCard({
           >
             {task.title}
           </Text>
+          {task.subtasks && task.subtasks.length > 0 && (
+            <View style={s.subtaskContainer} pointerEvents="none">
+              {task.subtasks.map((st) => (
+                <View key={st.id} style={s.subtaskRow}>
+                  <View style={[s.subtaskCheck, s.subtaskCheckDone, { borderColor: theme.hairline2, opacity: 0.5 }]}>
+                    <Icon.tick size={8} color={theme.onAccent} />
+                  </View>
+                  <Text
+                    style={[
+                      s.subtaskTitle,
+                      { color: theme.text4, textDecorationLine: 'line-through' },
+                    ]}
+                  >
+                    {st.title}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
           <View style={s.metaRow}>
             <Text style={s.meta}>
               {completedLabel(task.completedAt)}
@@ -315,6 +336,33 @@ export function TaskCard({
         >
           {task.title}
         </Animated.Text>
+        {task.subtasks && task.subtasks.length > 0 && (
+          <View style={s.subtaskContainer} pointerEvents="box-none">
+            {task.subtasks.map((st) => (
+              <Pressable
+                key={st.id}
+                style={s.subtaskRow}
+                onPress={() => {
+                  selectionFeedback(settings);
+                  actions.toggleSubtask(task.id, st.id, !st.done);
+                }}
+              >
+                <View style={[s.subtaskCheck, st.done && s.subtaskCheckDone, { borderColor: theme.hairline2 }]}>
+                  {st.done && <Icon.tick size={8} color={theme.onAccent} />}
+                </View>
+                <Text
+                  style={[
+                    s.subtaskTitle,
+                    { color: st.done ? theme.text3 : theme.text2 },
+                    st.done && { textDecorationLine: 'line-through' },
+                  ]}
+                >
+                  {st.title}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
         {meta.length > 0 && (
           <View style={s.metaRow}>
             {meta.map((m, i) => (
@@ -404,6 +452,32 @@ function makeStyles(t) {
       top: '50%',
       marginTop: -28,
       zIndex: 10,
+    },
+    subtaskContainer: {
+      marginTop: 10,
+      gap: 7,
+    },
+    subtaskRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 3,
+    },
+    subtaskCheck: {
+      width: 16,
+      height: 16,
+      borderRadius: 4,
+      borderWidth: 1.5,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    subtaskCheckDone: {
+      backgroundColor: t.accent,
+      borderColor: t.accent,
+    },
+    subtaskTitle: {
+      fontFamily: FONT.sansMedium,
+      fontSize: 13.5,
     },
   });
 }

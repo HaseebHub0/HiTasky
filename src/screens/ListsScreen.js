@@ -2,7 +2,7 @@
 // LISTS — flat projects. Overview + detail view.
 // Space and elevation separate tasks; never heavy divider lines.
 // ============================================================
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Modal,
   Pressable,
@@ -63,7 +63,7 @@ export function ListsOverview({ onOpenList, onNewList, onOpenPets, onOpenSetting
   const { state } = useStore();
   const theme = useAppTheme();
   const lists = listSummary(state);
-  const s = makeOverviewStyles(theme);
+  const s = useMemo(() => makeOverviewStyles(theme), [theme]);
 
   const tile = (key, icon, name, sub, accent, onPress) => (
     <Pressable key={key} style={s.tile} onPress={onPress}>
@@ -216,7 +216,7 @@ export function ListDetail({ listId, onBack, onOpenTask, onAddTask, onTriggerPay
   const complete = useCallback((task) => actions.toggleTask(task.id, true), []);
   const uncomplete = useCallback((task) => actions.toggleTask(task.id, false), []);
 
-  const s = makeDetailStyles(theme);
+  const s = useMemo(() => makeDetailStyles(theme), [theme]);
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>

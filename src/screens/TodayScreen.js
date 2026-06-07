@@ -3,7 +3,7 @@
 // First card is the hero "Now"; the rest are "Next". Reorderable
 // via react-native-draggable-flatlist.
 // ============================================================
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import DraggableFlatList from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -13,6 +13,7 @@ import { todayTasks, doneGroups, listName, scheduledTasks } from '../lib/selecto
 import { headerDate } from '../lib/date.js';
 import { softFeedback } from '../lib/feedback.js';
 import { Wordmark } from '../components/Wordmark.js';
+import { AppHeader } from '../components/AppHeader.js';
 import { Icon } from '../components/icons.js';
 import { TaskCard } from '../components/TaskCard.js';
 import { PetCompanion } from '../components/PetCompanion.js';
@@ -21,27 +22,14 @@ import { getPet } from '../lib/pets.js';
 import { Kicker, Display, H2, Meta, EmptyState } from '../components/ui.js';
 import { FONT } from '../theme.js';
 
-function TodayHeader({ theme, settings, s, onOpenPets, onOpenSettings }) {
-  const currentPet = settings?.pet || 'zen';
-
+function TodayHeader({ theme, settings, onOpenPets, onOpenSettings }) {
   return (
-    <View style={s.header}>
-      <View style={s.brandRow}>
-        <HeaderPet petId={currentPet} theme={theme} onPress={onOpenPets} />
-        <Wordmark theme={theme} size={22} />
-      </View>
-      <View style={s.headerRight}>
-        <Pressable
-          onPress={onOpenSettings}
-          hitSlop={8}
-          style={[s.settingsBtn, { backgroundColor: theme.surface2, borderColor: theme.hairline2 }]}
-          accessibilityRole="button"
-          accessibilityLabel="Open settings"
-        >
-          <Icon.sliders size={18} color={theme.text3} />
-        </Pressable>
-      </View>
-    </View>
+    <AppHeader
+      theme={theme}
+      settings={settings}
+      onOpenPets={onOpenPets}
+      onOpenSettings={onOpenSettings}
+    />
   );
 }
 
@@ -82,7 +70,7 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
     );
   }, [theme, state.settings, state.lists]);
 
-  const s = makeStyles(theme);
+  const s = useMemo(() => makeStyles(theme), [theme]);
 
   // empty state
   if (tasks.length === 0 && done.length === 0 && scheduled.length === 0) {
@@ -95,7 +83,6 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
         <TodayHeader
           theme={theme}
           settings={state.settings}
-          s={s}
           onOpenPets={onOpenPets}
           onOpenSettings={onOpenSettings}
         />

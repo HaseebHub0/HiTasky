@@ -164,6 +164,51 @@ export function SettingsScreen({ onToast, onTriggerPaywall, onBack, onOpenPets, 
             </View>
             <Switch value={!s.sansTitles} onChange={() => set('sansTitles', !s.sansTitles)} theme={theme} />
           </View>
+
+          <View style={[st.divider, { backgroundColor: theme.hairline }]} />
+
+          {/* Sort Order */}
+          <View style={[st.row, { flexDirection: 'column', alignItems: 'stretch', gap: 10 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+              <View style={st.ic}><Icon.sliders size={18} color={theme.text3} /></View>
+              <View style={st.rowBody}>
+                <Text style={[st.rowTitle, { color: theme.text }]}>Sort Order</Text>
+                <Text style={[st.rowSub, { color: theme.text3 }]}>Organise tasks on your lists</Text>
+              </View>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 38, paddingBottom: 6 }}>
+              <Pressable
+                onPress={() => { selectionFeedback(s); set('sortBy', 'smart'); }}
+                style={[st.sortChip, s.sortBy === 'smart' && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              >
+                <Text style={[st.sortChipText, { color: s.sortBy === 'smart' ? theme.accent : theme.text2 }]}>Smart</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { selectionFeedback(s); set('sortBy', 'dueDate'); }}
+                style={[st.sortChip, s.sortBy === 'dueDate' && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              >
+                <Text style={[st.sortChipText, { color: s.sortBy === 'dueDate' ? theme.accent : theme.text2 }]}>Due Date</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { selectionFeedback(s); set('sortBy', 'priority'); }}
+                style={[st.sortChip, s.sortBy === 'priority' && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              >
+                <Text style={[st.sortChipText, { color: s.sortBy === 'priority' ? theme.accent : theme.text2 }]}>Priority</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { selectionFeedback(s); set('sortBy', 'name'); }}
+                style={[st.sortChip, s.sortBy === 'name' && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              >
+                <Text style={[st.sortChipText, { color: s.sortBy === 'name' ? theme.accent : theme.text2 }]}>Alphabetical</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { selectionFeedback(s); set('sortBy', 'createdAt'); }}
+                style={[st.sortChip, s.sortBy === 'createdAt' && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              >
+                <Text style={[st.sortChipText, { color: s.sortBy === 'createdAt' ? theme.accent : theme.text2 }]}>Created Date</Text>
+              </Pressable>
+            </ScrollView>
+          </View>
         </View>
       </View>
 
@@ -492,6 +537,18 @@ function makeStyles(t) {
     divider: { height: 1 },
     swatchRow: { flexDirection: 'row', gap: 8 },
     swatch: { width: 26, height: 26, borderRadius: 13 },
+    sortChip: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: 'transparent',
+      backgroundColor: t.surface2,
+    },
+    sortChipText: {
+      fontSize: 12.5,
+      fontFamily: FONT.sansSemi,
+    },
     swatchOn: { borderWidth: 2.5, borderColor: '#fff' },
     footer: { marginTop: 26, marginLeft: 4, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
     dangerRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 17, borderTopColor: t.hairline, borderTopWidth: 1 },

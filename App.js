@@ -30,12 +30,13 @@ import {
   HankenGrotesk_700Bold,
 } from '@expo-google-fonts/hanken-grotesk';
 
+import * as Updates from 'expo-updates';
 import { StoreProvider, useStore } from './src/lib/store.js';
 import { useAppTheme } from './src/lib/useTheme.js';
 import { listName, todayTasks, doneGroups } from './src/lib/selectors.js';
-import { softFeedback } from './src/lib/feedback.js';
+import { softFeedback, addFeedback, deleteFeedback } from './src/lib/feedback.js';
 import { initBilling, getProProduct, purchaseLifetimePro, restorePurchase } from './src/lib/billing.js';
-import { PAYWALL_PRICING } from './src/lib/config.js';
+import { PAYWALL_PRICING, FREE_FOR_ALL } from './src/lib/config.js';
 import { track, flushAnalytics } from './src/lib/analytics.js';
 import { initCrashReporting } from './src/lib/crash.js';
 import { checkIntegrity, isProductionBuild } from './src/lib/security.js';
@@ -70,8 +71,32 @@ function AppShell() {
   // Initialize crash reporting + billing on mount (non-blocking)
   useEffect(() => {
     initCrashReporting();
-    initBilling();
+    // FREE-LAUNCH GUARD: while the app is free-for-all we do NOT open a Play
+    // Billing connection at startup (no initConnection, no purchase listeners).
+    // Billing code stays intact — it simply never executes. When monetization
+    // is re-enabled later (FREE_FOR_ALL = false, shipped via OTA), this resumes.
+    if (!FREE_FOR_ALL) initBilling();
   }, []);
+
+  // Automatic check for OTA updates on app launch
+  useEffect(() => {
+    (async () => {
+      if (Platform.OS === 'web') return;
+      try {
+        if (!Updates.isEnabled) return;
+        const check = await Updates.checkForUpdateAsync();
+        if (check.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          showToast('New update downloaded. Restarting...');
+          setTimeout(async () => {
+            await Updates.reloadAsync();
+          }, 1500);
+        }
+      } catch (e) {
+        console.warn('[Updates] Auto update check failed:', e.message);
+      }
+    })();
+  }, [showToast]);
 
   // Anti-tamper gate (Phase 2.3): only enforce on real production builds
   // so Expo Go / dev is unaffected. Lock (not crash) if compromised.
@@ -90,7 +115,7 @@ function AppShell() {
   const [noteSheet, setNoteSheet] = useState(null);
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [newList, setNewList] = useState(false);
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [petShopOpen, setPetShopOpen] = useState(false);
@@ -120,7 +145,9 @@ function AppShell() {
     setPrevActiveCount(activeCount);
   }, [activeCount, state]);
 
-  const showToast = useCallback((m) => setToast(m), []);
+  const showToast = useCallback((msg, onUndo = null, duration = 3000) => {
+    setToast({ message: msg, onUndo, duration });
+  }, []);
 
   // Flush the offline analytics buffer whenever the app comes to the
   // foreground (best moment to catch a regained connection).
@@ -305,17 +332,27 @@ function AppShell() {
       const lName = data.listId ? listName(state, data.listId) : 'Inbox';
       showToast('Added to ' + lName);
       emitPetReaction('add');
+      addFeedback(state.settings);
     } else {
       actions.updateTask(sheet.task.id, data);
       showToast('Saved');
+      softFeedback(state.settings);
     }
-    softFeedback(state.settings);
     setSheet(null);
   };
   const onDelete = (id) => {
+    const taskToDelete = state.tasks.find((t) => t.id === id);
     actions.deleteTask(id);
+    deleteFeedback(state.settings);
     setSheet(null);
-    showToast('Task deleted');
+    if (taskToDelete) {
+      showToast('Task deleted', () => {
+        actions.restoreTask(taskToDelete);
+        showToast('Task restored');
+      });
+    } else {
+      showToast('Task deleted');
+    }
   };
 
   const openAddNote = () => {
@@ -328,17 +365,27 @@ function AppShell() {
     if (noteSheet.mode === 'add') {
       actions.addNote(data);
       showToast('Note created');
+      addFeedback(state.settings);
     } else {
       actions.updateNote(noteSheet.note.id, data);
       showToast('Note saved');
+      softFeedback(state.settings);
     }
-    softFeedback(state.settings);
     setNoteSheet(null);
   };
   const onDeleteNote = (id) => {
+    const noteToDelete = state.notes.find((n) => n.id === id);
     actions.deleteNote(id);
-    showToast('Note deleted');
+    deleteFeedback(state.settings);
     setNoteSheet(null);
+    if (noteToDelete) {
+      showToast('Note deleted', () => {
+        actions.restoreNote(noteToDelete);
+        showToast('Note restored');
+      });
+    } else {
+      showToast('Note deleted');
+    }
   };
 
   const toggleTheme = () => {
@@ -526,7 +573,13 @@ function AppShell() {
       />
 
       {/* Toast */}
-      <Toast message={toast} theme={theme} onDone={() => setToast('')} />
+      <Toast
+        message={toast?.message}
+        onUndo={toast?.onUndo}
+        duration={toast?.duration}
+        theme={theme}
+        onDone={() => setToast(null)}
+      />
 
       {/* NoteSheet */}
       <NoteSheet

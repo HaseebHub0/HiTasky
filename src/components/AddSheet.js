@@ -49,6 +49,8 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
   const [pickerMode, setPickerMode] = useState('date');
   const [pickerDate, setPickerDate] = useState(new Date());
   const [pickerTarget, setPickerTarget] = useState('due'); // 'due' | 'reminder'
+  const [subtasks, setSubtasks] = useState([]);
+  const [newSubtaskText, setNewSubtaskText] = useState('');
 
   const slideY = useRef(new Animated.Value(400)).current;
   const scrimOp = useRef(new Animated.Value(0)).current;
@@ -66,6 +68,7 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
         setReminderAt(task.reminderAt || null);
         setRecurring(task.recurring || null);
         setPriority(task.priority || 'medium');
+        setSubtasks(task.subtasks || []);
       } else {
         setTitle('');
         setNote('');
@@ -74,7 +77,9 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
         setReminderAt(null);
         setRecurring(null);
         setPriority('medium');
+        setSubtasks([]);
       }
+      setNewSubtaskText('');
       Animated.parallel([
         Animated.spring(slideY, { toValue: 0, damping: 16, stiffness: 160, mass: 0.9, useNativeDriver: true }),
         Animated.timing(scrimOp, { toValue: 1, duration: 250, useNativeDriver: true }),
@@ -97,7 +102,7 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
   const submit = () => {
     if (!title.trim()) return;
     softFeedback(settings);
-    onSave({ title: title.trim(), note: note.trim(), listId, dueAt, reminderAt, recurring, priority });
+    onSave({ title: title.trim(), note: note.trim(), listId, dueAt, reminderAt, recurring, priority, subtasks });
   };
 
   // write a chosen ISO into whichever field the picker was opened for
@@ -126,6 +131,12 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
     const now = new Date();
     if (type === 'today') {
       const iso = startOfDay(now).toISOString();
+      setDueAt(iso);
+      reanchorReminder(iso);
+    } else if (type === 'evening') {
+      const target = new Date();
+      target.setHours(18, 0, 0, 0); // 6:00 PM today
+      const iso = target.toISOString();
       setDueAt(iso);
       reanchorReminder(iso);
     } else if (type === 'tomorrow') {
@@ -168,9 +179,11 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
 
   const isQuick = (type) => {
     if (!dueAt) return false;
-    const d = startOfDay(new Date(dueAt));
+    const dateObj = new Date(dueAt);
+    const d = startOfDay(dateObj);
     const today = startOfDay();
-    if (type === 'today') return d.getTime() === today.getTime();
+    if (type === 'today') return d.getTime() === today.getTime() && !(dateObj.getHours() === 18 && dateObj.getMinutes() === 0);
+    if (type === 'evening') return d.getTime() === today.getTime() && dateObj.getHours() === 18 && dateObj.getMinutes() === 0;
     if (type === 'tomorrow') return d.getTime() === addDays(today, 1).getTime();
     if (type === 'weekend') return d.getTime() === thisWeekend().getTime();
     return false;
@@ -222,6 +235,16 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
         setPickerDate(final);
       }
     }
+  };
+
+  const handleAddSubtask = () => {
+    if (!newSubtaskText.trim()) return;
+    softFeedback(settings);
+    setSubtasks([
+      ...subtasks,
+      { id: 'st_' + Math.random().toString(36).substr(2, 9), title: newSubtaskText.trim(), done: false },
+    ]);
+    setNewSubtaskText('');
   };
 
   const s = makeStyles(theme);
@@ -303,6 +326,7 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
             <FieldHeader title="DUE DATE" desc="When this task belongs on your list" theme={theme} s={s} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipScroll} contentContainerStyle={{ gap: 9 }}>
               <Chip label="Today" on={isQuick('today')} theme={theme} onPress={() => pickQuick('today')} />
+              <Chip label="This evening" on={isQuick('evening')} theme={theme} onPress={() => pickQuick('evening')} />
               <Chip label="Tomorrow" on={isQuick('tomorrow')} theme={theme} onPress={() => pickQuick('tomorrow')} />
               <Chip label="This weekend" on={isQuick('weekend')} theme={theme} onPress={() => pickQuick('weekend')} />
               <Chip icon={<Icon.cal size={16} color={theme.text2} />} label="Pick a date" theme={theme} onPress={() => pickQuick('calendar')} />
@@ -358,6 +382,8 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
               <Chip label="Daily" on={recurring === 'daily'} theme={theme} onPress={() => handleRecurringPress('daily')} />
               <Chip label="Weekdays" on={recurring === 'weekdays'} theme={theme} onPress={() => handleRecurringPress('weekdays')} />
               <Chip label="Weekly" on={recurring === 'weekly'} theme={theme} onPress={() => handleRecurringPress('weekly')} />
+              <Chip label="Bi-weekly" on={recurring === 'biweekly'} theme={theme} onPress={() => handleRecurringPress('biweekly')} />
+              <Chip label="Monthly" on={recurring === 'monthly'} theme={theme} onPress={() => handleRecurringPress('monthly')} />
             </ScrollView>
 
             {/* list chips */}
@@ -379,6 +405,64 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
                     />
                   ))}
                 </ScrollView>
+              </>
+            )}
+
+            {/* subtasks checklist editing section */}
+            {mode === 'edit' && (
+              <>
+                <Text style={[s.label, { color: theme.text3, marginTop: 18 }]}>CHECKLIST / SUBTASKS</Text>
+                <View style={s.subtaskEditSection}>
+                  {subtasks.map((st, idx) => (
+                    <View key={st.id || idx} style={s.subtaskEditRow}>
+                      <Pressable
+                        onPress={() => {
+                          softFeedback(settings);
+                          setSubtasks(subtasks.map((s, i) => i === idx ? { ...s, done: !s.done } : s));
+                        }}
+                        style={[s.subtaskEditCheck, st.done && s.subtaskEditCheckDone, { borderColor: theme.hairline2 }]}
+                      >
+                        {st.done && <Icon.tick size={8} color={theme.onAccent} />}
+                      </Pressable>
+                      <TextInput
+                        style={[s.subtaskEditTextInput, { color: theme.text }, st.done && { textDecorationLine: 'line-through', color: theme.text3 }]}
+                        value={st.title}
+                        onChangeText={(text) => {
+                          setSubtasks(subtasks.map((s, i) => i === idx ? { ...s, title: text } : s));
+                        }}
+                        selectionColor={theme.accent}
+                      />
+                      <Pressable
+                        onPress={() => {
+                          softFeedback(settings);
+                          setSubtasks(subtasks.filter((_, i) => i !== idx));
+                        }}
+                        hitSlop={8}
+                      >
+                        <Text style={{ color: '#C2503A', fontSize: 18, fontWeight: '700', paddingHorizontal: 6 }}>×</Text>
+                      </Pressable>
+                    </View>
+                  ))}
+
+                  <View style={s.subtaskAddRow}>
+                    <TextInput
+                      style={[s.subtaskAddInput, { color: theme.text, borderColor: theme.hairline2 }]}
+                      placeholder="Add a subtask…"
+                      placeholderTextColor={theme.text4}
+                      value={newSubtaskText}
+                      onChangeText={setNewSubtaskText}
+                      onSubmitEditing={handleAddSubtask}
+                      returnKeyType="done"
+                      selectionColor={theme.accent}
+                    />
+                    <Pressable
+                      onPress={handleAddSubtask}
+                      style={[s.subtaskAddBtn, { backgroundColor: newSubtaskText.trim() ? theme.accent : theme.surface2 }]}
+                    >
+                      <Icon.plus size={12} color={newSubtaskText.trim() ? theme.onAccent : theme.text3} />
+                    </Pressable>
+                  </View>
+                </View>
               </>
             )}
 
@@ -575,6 +659,57 @@ function makeStyles(t) {
       fontFamily: FONT.sansSemi,
       fontSize: 14,
       color: '#C2503A',
+    },
+    subtaskEditSection: {
+      marginTop: 6,
+      gap: 10,
+    },
+    subtaskEditRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 2,
+    },
+    subtaskEditCheck: {
+      width: 18,
+      height: 18,
+      borderRadius: 4,
+      borderWidth: 1.5,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    subtaskEditCheckDone: {
+      backgroundColor: t.accent,
+      borderColor: t.accent,
+    },
+    subtaskEditTextInput: {
+      flex: 1,
+      fontFamily: FONT.sansMedium,
+      fontSize: 14,
+      padding: 0,
+    },
+    subtaskAddRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginTop: 4,
+    },
+    subtaskAddInput: {
+      flex: 1,
+      fontFamily: FONT.sansMedium,
+      fontSize: 14,
+      borderWidth: 1,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      backgroundColor: t.surface2,
+    },
+    subtaskAddBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     pickerOverlay: {
       flex: 1,

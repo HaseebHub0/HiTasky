@@ -831,7 +831,9 @@ function WelcomePanel({ theme, s, next, finish }) {
           A quieter way to{'\n'}keep your <Text style={{ fontStyle: 'italic' }}>days.</Text>
         </Text>
         <Text style={[s.obLede, { textAlign: 'center', marginTop: 10, color: theme.text2 }]}>
-          Offline. One purchase. Yours for good.
+          {/* FREE-LAUNCH: drop the "One purchase" line while free-for-all is on.
+              Path B (billing) restores the purchase-framed copy automatically. */}
+          {FREE_FOR_ALL ? 'Offline. Private. Yours for good.' : 'Offline. One purchase. Yours for good.'}
         </Text>
       </View>
       <CTA label="Begin" theme={theme} onPress={next} />

@@ -13,6 +13,7 @@
 // ============================================================
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { isToday, isOverdue } from './date.js';
 
 // Set notification handler — controls how notifications appear
 // when the app is in the foreground.
@@ -199,5 +200,93 @@ export async function rescheduleAllReminders(tasks) {
 
   if (scheduled > 0) {
     console.log(`[Notifications] Rescheduled ${scheduled} reminder(s)`);
+  }
+}
+
+function calculateStreak(tasks) {
+  const completedDates = new Set(
+    (tasks || [])
+      .filter((t) => t.isCompleted && t.completedAt)
+      .map((t) => {
+        const d = new Date(t.completedAt);
+        return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      })
+  );
+
+  let streak = 0;
+  let checkDate = new Date();
+  const formatDate = (date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+
+  // If today has completion, count starting today
+  if (completedDates.has(formatDate(checkDate))) {
+    while (completedDates.has(formatDate(checkDate))) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+  } else {
+    // Check if yesterday was completed
+    checkDate.setDate(checkDate.getDate() - 1);
+    if (completedDates.has(formatDate(checkDate))) {
+      while (completedDates.has(formatDate(checkDate))) {
+        streak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+    }
+  }
+  return streak;
+}
+
+export async function scheduleMorningDigest(tasks) {
+  if (Platform.OS === 'web') return;
+
+  const identifier = 'morning_digest';
+  try {
+    // Cancel the existing morning digest notification first to avoid duplicates
+    await Notifications.cancelScheduledNotificationAsync(identifier);
+  } catch (e) {
+    // ignore
+  }
+
+  // Request permissions
+  const hasPermission = await requestPermissions();
+  if (!hasPermission) return;
+
+  const now = new Date();
+  const triggerTime = new Date(now);
+  triggerTime.setHours(8, 0, 0, 0);
+  if (triggerTime.getTime() <= now.getTime()) {
+    // Already past 8:00 AM today, schedule for tomorrow at 8:00 AM
+    triggerTime.setDate(triggerTime.getDate() + 1);
+  }
+
+  const streak = calculateStreak(tasks);
+  const todayActiveTasks = (tasks || []).filter(
+    (t) => !t.isCompleted && (isToday(t.dueAt) || isOverdue(t.dueAt) || (!t.dueAt && isToday(t.createdAt)))
+  );
+  const todayCount = todayActiveTasks.length;
+
+  let body = '';
+  if (todayCount > 0) {
+    body = `You have ${todayCount} task${todayCount === 1 ? '' : 's'} today. Streak: ${streak} day${streak === 1 ? '' : 's'}.`;
+  } else {
+    body = `Your day is clear! Streak: ${streak} day${streak === 1 ? '' : 's'}.`;
+  }
+
+  try {
+    await Notifications.scheduleNotificationAsync({
+      identifier,
+      content: {
+        title: 'Morning Digest',
+        body,
+        sound: true,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: triggerTime,
+      },
+    });
+    console.log(`[Notifications] Morning digest scheduled for ${triggerTime.toISOString()}`);
+  } catch (e) {
+    console.warn('[Notifications] Failed to schedule morning digest:', e.message);
   }
 }

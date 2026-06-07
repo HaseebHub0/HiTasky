@@ -2,7 +2,7 @@
 // NOTES — a tactical scratchpad for jotting down thoughts.
 // Rendered in a grid of glassmorphic, colorful cards.
 // ============================================================
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Dimensions,
   Modal,
@@ -12,6 +12,7 @@ import {
   Text,
   TextInput,
   View,
+  LayoutAnimation,
 } from 'react-native';
 import { useStore } from '../lib/store.js';
 import { useAppTheme } from '../lib/useTheme.js';
@@ -19,55 +20,64 @@ import { Icon } from '../components/icons.js';
 import { getPet } from '../lib/pets.js';
 import { Pet, HeaderPet } from '../components/Pet.js';
 import { Kicker, Display } from '../components/ui.js';
+import { Wordmark } from '../components/Wordmark.js';
+import { AppHeader } from '../components/AppHeader.js';
 import { FONT, ACCENTS, softOf } from '../theme.js';
+import { selectionFeedback } from '../lib/feedback.js';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
-function GlassyHeader({ theme, settings, title, onOpenPets, onOpenSettings }) {
-  const s = makeStyles(theme);
-  const currentPet = settings?.pet || 'zen';
-
+function GlassyHeader({ theme, settings, onOpenPets, onOpenSettings }) {
   return (
-    <View style={s.glassHeader}>
-      <View style={s.brandRow}>
-        <HeaderPet petId={currentPet} theme={theme} onPress={onOpenPets} />
-        <Text style={[s.brandWord, { color: theme.text }]}>{title}</Text>
-      </View>
-      <View style={s.headerRight}>
-        <Pressable
-          onPress={onOpenSettings}
-          hitSlop={8}
-          style={s.settingsBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Open settings"
-        >
-          <Icon.sliders size={18} color={theme.text3} />
-        </Pressable>
-      </View>
-    </View>
+    <AppHeader
+      theme={theme}
+      settings={settings}
+      onOpenPets={onOpenPets}
+      onOpenSettings={onOpenSettings}
+    />
   );
 }
 
 export function NotesScreen({ onOpenSearch, onOpenPets, onOpenSettings, onOpenNote }) {
-  const { state } = useStore();
+  const { state, actions } = useStore();
   const theme = useAppTheme();
   const notes = state.notes || [];
   const [notesLimit, setNotesLimit] = React.useState(12);
   const [query, setQuery] = React.useState('');
 
-  const s = makeStyles(theme);
+  const s = useMemo(() => makeStyles(theme), [theme]);
+
+  // Sort notes: pinned notes first, keeping the relative order of others
+  const sortedNotes = useMemo(() => {
+    return [...notes].sort((a, b) => {
+      const aPinned = !!a.pinned;
+      const bPinned = !!b.pinned;
+      if (aPinned !== bPinned) {
+        return aPinned ? -1 : 1;
+      }
+      return 0;
+    });
+  }, [notes]);
 
   // Notes-only search — matches against BOTH title and content.
   const q = query.trim().toLowerCase();
   const filtered = q
-    ? notes.filter(
+    ? sortedNotes.filter(
         (n) =>
           (n.title || '').toLowerCase().includes(q) ||
           (n.content || '').toLowerCase().includes(q)
       )
-    : notes;
+    : sortedNotes;
 
   const visibleNotes = filtered.slice(0, notesLimit);
+
+  const handleTogglePin = (note) => {
+    selectionFeedback(state.settings);
+    if (LayoutAnimation.configureNext) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
+    actions.updateNote(note.id, { pinned: !note.pinned });
+  };
 
   // Build one ordered list so the "New note" card always comes AFTER the
   // last note (not first). Hidden while actively searching so results stay clean.
@@ -87,7 +97,13 @@ export function NotesScreen({ onOpenSearch, onOpenPets, onOpenSettings, onOpenNo
         <Text style={[s.addNoteText, { color: theme.text3 }]}>New note...</Text>
       </Pressable>
     ) : (
-      <NoteCard key={it.key} note={it.note} theme={theme} onPress={() => onOpenNote(it.note)} />
+      <NoteCard
+        key={it.key}
+        note={it.note}
+        theme={theme}
+        onPress={() => onOpenNote(it.note)}
+        onLongPress={() => handleTogglePin(it.note)}
+      />
     );
 
   return (
@@ -101,7 +117,6 @@ export function NotesScreen({ onOpenSearch, onOpenPets, onOpenSettings, onOpenNo
         <GlassyHeader
           theme={theme}
           settings={state.settings}
-          title="Hi Tasky"
           onOpenPets={onOpenPets}
           onOpenSettings={onOpenSettings}
         />
@@ -154,16 +169,18 @@ export function NotesScreen({ onOpenSearch, onOpenPets, onOpenSettings, onOpenNo
   );
 }
 
-function NoteCard({ note, theme, onPress }) {
+function NoteCard({ note, theme, onPress, onLongPress }) {
   const s = makeStyles(theme);
   const accent = note.accent || ACCENTS[0];
   const title = (note.title || '').trim();
   const content = (note.content || '').trim();
   const noteAccentSoft = softOf(accent, theme.mode === 'light' ? 0.08 : 0.12);
+  const pinned = !!note.pinned;
 
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       style={[
         s.noteCard,
         {
@@ -175,8 +192,15 @@ function NoteCard({ note, theme, onPress }) {
     >
       {/* Background tint overlay */}
       <View style={[StyleSheet.absoluteFillObject, { backgroundColor: noteAccentSoft, borderRadius: theme.radius - 2 }]} />
+      
+      {pinned && (
+        <View style={s.pinIconWrap}>
+          <Icon.pin size={12} color={accent} fill={accent} />
+        </View>
+      )}
+
       {title ? (
-        <Text style={[s.noteTitle, { color: theme.text }]} numberOfLines={2}>
+        <Text style={[s.noteTitle, pinned ? { marginRight: 14 } : null, { color: theme.text }]} numberOfLines={2}>
           {title}
         </Text>
       ) : null}
@@ -295,6 +319,12 @@ function makeStyles(t) {
       elevation: 2,
       position: 'relative',
       overflow: 'hidden',
+    },
+    pinIconWrap: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      zIndex: 10,
     },
     addNoteCard: {
       backgroundColor: 'transparent',

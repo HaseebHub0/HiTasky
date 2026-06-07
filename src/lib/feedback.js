@@ -20,3 +20,14 @@ export function selectionFeedback(settings) {
   if (settings && settings.haptics === false) return;
   Haptics.selectionAsync().catch(() => {});
 }
+
+export function addFeedback(settings) {
+  if (settings && settings.haptics === false) return;
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+}
+
+export function deleteFeedback(settings) {
+  if (settings && settings.haptics === false) return;
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+}
+

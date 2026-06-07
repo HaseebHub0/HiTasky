@@ -19,7 +19,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { uid } from './id.js';
 import { startOfDay, startOfWeek, isWeekday } from './date.js';
 import { ACCENTS } from '../theme.js';
-import { scheduleReminder, cancelReminder, rescheduleAllReminders } from './notifications.js';
+import { scheduleReminder, cancelReminder, rescheduleAllReminders, scheduleMorningDigest } from './notifications.js';
 import { FREE_FOR_ALL } from './config.js';
 import { initTrial } from './trial.js';
 import { claimFounderSlot } from './earlyAccess.js';
@@ -58,6 +58,7 @@ function seed() {
       accent: null,
       pet: 'zen',
       sansTitles: false,
+      sortBy: 'smart',
     },
   };
 }
@@ -206,6 +207,12 @@ function reducer(state, action) {
     case 'DELETE_TASK':
       return { ...state, tasks: state.tasks.filter((t) => t.id !== action.payload.id) };
 
+    case 'RESTORE_TASK': {
+      const { task } = action.payload;
+      if (!task) return state;
+      return { ...state, tasks: [task, ...state.tasks] };
+    }
+
     case 'REORDER': {
       const { orderedIds } = action.payload;
       const orderMap = new Map(orderedIds.map((id, i) => [id, i]));
@@ -252,6 +259,7 @@ function reducer(state, action) {
         title: (title || '').trim(),
         content: (content || '').trim(),
         accent: accent || ACCENTS[0],
+        pinned: false,
         createdAt: nowIso(),
         updatedAt: nowIso(),
       };
@@ -271,6 +279,52 @@ function reducer(state, action) {
         ...state,
         notes: (state.notes || []).filter((n) => n.id !== action.payload.id),
       };
+
+    case 'RESTORE_NOTE': {
+      const { note } = action.payload;
+      if (!note) return state;
+      return { ...state, notes: [note, ...(state.notes || [])] };
+    }
+
+    case 'ADD_SUBTASK': {
+      const { taskId, title } = action.payload;
+      if (!title || !title.trim()) return state;
+      return {
+        ...state,
+        tasks: state.tasks.map((t) => {
+          if (t.id !== taskId) return t;
+          const subtasks = t.subtasks || [];
+          const newSub = { id: uid('s'), title: title.trim(), done: false };
+          return { ...t, subtasks: [...subtasks, newSub] };
+        }),
+      };
+    }
+
+    case 'TOGGLE_SUBTASK': {
+      const { taskId, subtaskId, done } = action.payload;
+      return {
+        ...state,
+        tasks: state.tasks.map((t) => {
+          if (t.id !== taskId) return t;
+          const subtasks = (t.subtasks || []).map((st) =>
+            st.id === subtaskId ? { ...st, done } : st
+          );
+          return { ...t, subtasks };
+        }),
+      };
+    }
+
+    case 'DELETE_SUBTASK': {
+      const { taskId, subtaskId } = action.payload;
+      return {
+        ...state,
+        tasks: state.tasks.map((t) => {
+          if (t.id !== taskId) return t;
+          const subtasks = (t.subtasks || []).filter((st) => st.id !== subtaskId);
+          return { ...t, subtasks };
+        }),
+      };
+    }
 
     case 'SET_SETTING':
       return { ...state, settings: { ...state.settings, [action.payload.key]: action.payload.value } };
@@ -483,6 +537,9 @@ export function StoreProvider({ children, fallback = null }) {
     const newMap = new Map();
     currentTasks.forEach(t => newMap.set(t.id, t));
     prevTasksMapRef.current = newMap;
+    
+    // Schedule / update morning digest
+    scheduleMorningDigest(currentTasks);
   }, [state?.tasks]);
 
   const value = useMemo(() => {
@@ -555,6 +612,18 @@ function resetRecurringTasks(state) {
     } else if (task.recurring === 'weekly') {
       // Reappears once the week rolls over.
       due = compMs < weekStartMs;
+    } else if (task.recurring === 'biweekly') {
+      // Reappears once bi-weekly week rolls over.
+      const compWeekStartMs = startOfWeek(comp).getTime();
+      const weeksDiff = (weekStartMs - compWeekStartMs) / (86400000 * 7);
+      due = weeksDiff >= 2;
+    } else if (task.recurring === 'monthly') {
+      // Reappears when the calendar month rolls over.
+      const compMonth = comp.getMonth();
+      const compYear = comp.getFullYear();
+      const currentMonth = today.getMonth();
+      const currentYear = today.getFullYear();
+      due = compYear < currentYear || (compYear === currentYear && compMonth < currentMonth);
     }
 
     if (due) {
@@ -587,6 +656,10 @@ function makeActions(dispatch) {
       triggerLayoutAnimation();
       dispatch({ type: 'DELETE_TASK', payload: { id } });
     },
+    restoreTask: (task) => {
+      triggerLayoutAnimation();
+      dispatch({ type: 'RESTORE_TASK', payload: { task } });
+    },
     reorder: (orderedIds) => dispatch({ type: 'REORDER', payload: { orderedIds } }),
     addList: (name, accent, icon) => {
       triggerLayoutAnimation();
@@ -606,6 +679,13 @@ function makeActions(dispatch) {
       triggerLayoutAnimation();
       dispatch({ type: 'DELETE_NOTE', payload: { id } });
     },
+    restoreNote: (note) => {
+      triggerLayoutAnimation();
+      dispatch({ type: 'RESTORE_NOTE', payload: { note } });
+    },
+    addSubtask: (taskId, title) => dispatch({ type: 'ADD_SUBTASK', payload: { taskId, title } }),
+    toggleSubtask: (taskId, subtaskId, done) => dispatch({ type: 'TOGGLE_SUBTASK', payload: { taskId, subtaskId, done } }),
+    deleteSubtask: (taskId, subtaskId) => dispatch({ type: 'DELETE_SUBTASK', payload: { taskId, subtaskId } }),
     setSetting: (key, value) => dispatch({ type: 'SET_SETTING', payload: { key, value } }),
     clearCompleted: () => {
       triggerLayoutAnimation();
