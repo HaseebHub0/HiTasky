@@ -19,6 +19,7 @@ export function TaskCard({
   onOpen,
   drag, // long-press handler from the reorderable list
   isActive = false,
+  dragHandlers,
 }) {
   const { actions } = useStore();
   const isNew = Date.now() - new Date(task.createdAt).getTime() < 4000;
@@ -375,11 +376,15 @@ export function TaskCard({
         )}
       </Pressable>
 
-      {drag && (
+      {dragHandlers ? (
+        <View {...dragHandlers} style={s.handle}>
+          <Icon.grip color={theme.text4} />
+        </View>
+      ) : drag ? (
         <Pressable onLongPress={drag} delayLongPress={180} hitSlop={8} style={s.handle}>
           <Icon.grip color={theme.text4} />
         </Pressable>
-      )}
+      ) : null}
 
       {petAnimation && (
         <View style={[s.cardPetWrap, { right: drag ? 38 : 16 }]}>
@@ -440,7 +445,7 @@ function makeStyles(t) {
       lineHeight: 25,
       letterSpacing: -0.1,
       color: t.text,
-      alignSelf: 'flex-start',
+      flexShrink: 1,
     },
     titleHero: { fontSize: 27, lineHeight: 34 },
     metaRow: { marginTop: 9, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 9 },
@@ -478,6 +483,7 @@ function makeStyles(t) {
     subtaskTitle: {
       fontFamily: FONT.sansMedium,
       fontSize: 13.5,
+      flexShrink: 1,
     },
   });
 }

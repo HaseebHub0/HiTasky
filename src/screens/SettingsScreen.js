@@ -16,6 +16,7 @@ import { FONT, ACCENTS, softOf, makeTheme } from '../theme.js';
 import { PETS, getPet } from '../lib/pets.js';
 import { completionFeedback, selectionFeedback } from '../lib/feedback.js';
 import * as Updates from 'expo-updates';
+import { AppHeader } from '../components/AppHeader.js';
 
 
 export function SettingsScreen({ onToast, onTriggerPaywall, onBack, onOpenPets, onOpenRating }) {
@@ -85,19 +86,12 @@ export function SettingsScreen({ onToast, onTriggerPaywall, onBack, onOpenPets, 
       showsVerticalScrollIndicator={false}
     >
       {/* Header */}
-      <View style={st.header}>
-        <View style={st.brandRow}>
-          <HeaderPet petId={state.settings.pet || 'zen'} theme={theme} onPress={onOpenPets} />
-          <Wordmark theme={theme} size={22} />
-        </View>
-        <View style={st.headerRight}>
-          {onBack && (
-            <Pressable style={st.backBtn} onPress={onBack} hitSlop={8}>
-              <Icon.chevLeft size={18} color={theme.text3} />
-            </Pressable>
-          )}
-        </View>
-      </View>
+      <AppHeader
+        theme={theme}
+        settings={state.settings}
+        onOpenPets={onOpenPets}
+        onBack={onBack}
+      />
 
       <View style={{ marginTop: 6, marginBottom: 16 }}>
         <Kicker style={{ color: theme.text3, marginBottom: 6 }}>Settings</Kicker>
@@ -153,16 +147,67 @@ export function SettingsScreen({ onToast, onTriggerPaywall, onBack, onOpenPets, 
 
           <View style={[st.divider, { backgroundColor: theme.hairline }]} />
 
-          {/* Serif titles */}
-          <View style={st.row}>
-            <View style={st.ic}>
-              <Text style={{ fontFamily: FONT.serifItalic, fontSize: 17, color: theme.text3 }}>A</Text>
+          {/* Typography */}
+          <View style={[st.row, { flexDirection: 'column', alignItems: 'stretch', gap: 10 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+              <View style={st.ic}>
+                <Text style={{ fontFamily: FONT.serifItalic, fontSize: 17, color: theme.text3 }}>Aa</Text>
+              </View>
+              <View style={st.rowBody}>
+                <Text style={[st.rowTitle, { color: theme.text }]}>Typography</Text>
+                <Text style={[st.rowSub, { color: theme.text3 }]}>App-wide font style</Text>
+              </View>
             </View>
-            <View style={st.rowBody}>
-              <Text style={[st.rowTitle, { color: theme.text }]}>Serif titles</Text>
-              <Text style={[st.rowSub, { color: theme.text3 }]}>Editorial Newsreader on task titles</Text>
-            </View>
-            <Switch value={!s.sansTitles} onChange={() => set('sansTitles', !s.sansTitles)} theme={theme} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 38, paddingBottom: 6 }}>
+              <Pressable
+                onPress={() => { selectionFeedback(s); set('fontStyle', 'editorial'); }}
+                style={[st.sortChip, (s.fontStyle === 'editorial' || !s.fontStyle) && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              >
+                <Text style={[st.sortChipText, { color: (s.fontStyle === 'editorial' || !s.fontStyle) ? theme.accent : theme.text2 }]}>Editorial</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { selectionFeedback(s); set('fontStyle', 'elegant'); }}
+                style={[st.sortChip, s.fontStyle === 'elegant' && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              >
+                <Text style={[st.sortChipText, { color: s.fontStyle === 'elegant' ? theme.accent : theme.text2 }]}>Elegant</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { selectionFeedback(s); set('fontStyle', 'minimal'); }}
+                style={[st.sortChip, s.fontStyle === 'minimal' && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              >
+                <Text style={[st.sortChipText, { color: s.fontStyle === 'minimal' ? theme.accent : theme.text2 }]}>Minimal</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { selectionFeedback(s); set('fontStyle', 'classic'); }}
+                style={[st.sortChip, s.fontStyle === 'classic' && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              >
+                <Text style={[st.sortChipText, { color: s.fontStyle === 'classic' ? theme.accent : theme.text2 }]}>Classic</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { selectionFeedback(s); set('fontStyle', 'modern'); }}
+                style={[st.sortChip, s.fontStyle === 'modern' && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              >
+                <Text style={[st.sortChipText, { color: s.fontStyle === 'modern' ? theme.accent : theme.text2 }]}>Modern</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { selectionFeedback(s); set('fontStyle', 'code'); }}
+                style={[st.sortChip, s.fontStyle === 'code' && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              >
+                <Text style={[st.sortChipText, { color: s.fontStyle === 'code' ? theme.accent : theme.text2 }]}>Code</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { selectionFeedback(s); set('fontStyle', 'cursive'); }}
+                style={[st.sortChip, s.fontStyle === 'cursive' && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              >
+                <Text style={[st.sortChipText, { color: s.fontStyle === 'cursive' ? theme.accent : theme.text2 }]}>Cursive</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { selectionFeedback(s); set('fontStyle', 'cute'); }}
+                style={[st.sortChip, s.fontStyle === 'cute' && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              >
+                <Text style={[st.sortChipText, { color: s.fontStyle === 'cute' ? theme.accent : theme.text2 }]}>Cute</Text>
+              </Pressable>
+            </ScrollView>
           </View>
 
           <View style={[st.divider, { backgroundColor: theme.hairline }]} />

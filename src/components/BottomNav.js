@@ -11,6 +11,7 @@ import { selectionFeedback } from '../lib/feedback.js';
 
 const TABS = [
   { id: 'today', label: 'Today', icon: Icon.today },
+  { id: 'schedule', label: 'Schedule', icon: Icon.cal },
   { id: 'lists', label: 'Lists', icon: Icon.lists },
   { id: 'notes', label: 'Notes', icon: Icon.book },
   { id: 'done', label: 'Journal', icon: Icon.doneTab },

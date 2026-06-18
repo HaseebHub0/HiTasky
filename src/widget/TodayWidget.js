@@ -7,65 +7,70 @@
 import React from 'react';
 import { FlexWidget, TextWidget } from 'react-native-android-widget';
 
-const PALETTES = {
-  dark: { bg: '#18140F', surface: '#221D17', text: '#F3ECDF', muted: '#7C7264', accent: '#E58A4B' },
-  light: { bg: '#F4EEE2', surface: '#FBF6EC', text: '#29231A', muted: '#9A8E79', accent: '#C26A2F' },
-};
-
-export function TodayWidget({ tasks = [], dateLabel = '', theme = 'dark' }) {
-  const c = PALETTES[theme] || PALETTES.dark;
+export function TodayWidget({ tasks = [], dateLabel = '', colors, pet = '' }) {
+  const c = colors || { bg: '#18140F', surface: '#221D17', text: '#F3ECDF', muted: '#7C7264', accent: '#E58A4B' };
   const shown = tasks.slice(0, 4);
   const more = tasks.length - shown.length;
 
   return (
     <FlexWidget
-      clickAction="OPEN_APP"
       style={{
         height: 'match_parent',
         width: 'match_parent',
         flexDirection: 'column',
         backgroundColor: c.bg,
-        borderRadius: 20,
-        padding: 16,
+        borderRadius: 28, // Android 12+ style
+        padding: 20,
       }}
     >
       {/* header */}
-      <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', width: 'match_parent' }}>
-        <TextWidget text="👋" style={{ fontSize: 14 }} />
-        <TextWidget
-          text=" HiTasky"
-          style={{ fontSize: 13, color: c.accent, fontFamily: 'serif' }}
-        />
+      <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', width: 'match_parent', marginBottom: 12 }}>
+        <TextWidget text={pet} style={{ fontSize: 18 }} />
         <FlexWidget style={{ flex: 1 }} />
-        <TextWidget text={dateLabel} style={{ fontSize: 11, color: c.muted }} />
+        <TextWidget text={dateLabel} style={{ fontSize: 12, color: c.muted }} />
       </FlexWidget>
 
       {/* body */}
       {shown.length === 0 ? (
-        <FlexWidget style={{ flexDirection: 'column', marginTop: 12 }}>
-          <TextWidget text="Nothing pressing." style={{ fontSize: 15, color: c.text }} />
-          <TextWidget text="Enjoy the white space." style={{ fontSize: 12, color: c.muted, marginTop: 2 }} />
+        <FlexWidget clickAction="OPEN_APP" style={{ flexDirection: 'column', flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <TextWidget text="All done!" style={{ fontSize: 18, color: c.text, fontFamily: 'serif' }} />
+          <TextWidget text="Enjoy the white space." style={{ fontSize: 13, color: c.muted, marginTop: 4 }} />
         </FlexWidget>
       ) : (
-        <FlexWidget style={{ flexDirection: 'column', marginTop: 10, width: 'match_parent' }}>
-          {shown.map((title, i) => (
+        <FlexWidget style={{ flexDirection: 'column', flex: 1, width: 'match_parent' }}>
+          {shown.map((task, i) => (
             <FlexWidget
-              key={String(i)}
-              style={{ flexDirection: 'row', alignItems: 'center', width: 'match_parent', marginBottom: 7 }}
+              key={task.id}
+              style={{ flexDirection: 'row', alignItems: 'center', width: 'match_parent', marginBottom: 12 }}
             >
               <FlexWidget
-                style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.accent, marginRight: 9 }}
+                clickAction="CUSTOM"
+                clickActionData={{ action: 'COMPLETE', id: task.id }}
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
+                  borderWidth: 2,
+                  borderColor: c.accent,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}
               />
-              <TextWidget
-                text={title}
-                truncate="END"
-                maxLines={1}
-                style={{ fontSize: 14, color: c.text }}
-              />
+              <FlexWidget clickAction="OPEN_APP" style={{ flex: 1 }}>
+                <TextWidget
+                  text={task.title}
+                  truncate="END"
+                  maxLines={1}
+                  style={{ fontSize: 15, color: c.text }}
+                />
+              </FlexWidget>
             </FlexWidget>
           ))}
           {more > 0 && (
-            <TextWidget text={`+${more} more`} style={{ fontSize: 11, color: c.muted, marginTop: 2 }} />
+            <FlexWidget clickAction="OPEN_APP" style={{ marginTop: 4 }}>
+              <TextWidget text={`+${more} more`} style={{ fontSize: 12, color: c.muted }} />
+            </FlexWidget>
           )}
         </FlexWidget>
       )}

@@ -23,6 +23,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import * as chrono from 'chrono-node';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Icon, NibMark } from './icons.js';
 import { FONT } from '../theme.js';
@@ -42,6 +43,7 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
   const [note, setNote] = useState('');
   const [listId, setListId] = useState(null);
   const [dueAt, setDueAt] = useState(null);
+  const [startAt, setStartAt] = useState(null);
   const [reminderAt, setReminderAt] = useState(null);
   const [recurring, setRecurring] = useState(null);
   const [priority, setPriority] = useState('medium');
@@ -65,6 +67,7 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
         setNote(task.note || '');
         setListId(task.listId || null);
         setDueAt(task.dueAt || null);
+        setStartAt(task.startAt || null);
         setReminderAt(task.reminderAt || null);
         setRecurring(task.recurring || null);
         setPriority(task.priority || 'medium');
@@ -73,8 +76,9 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
         setTitle('');
         setNote('');
         setListId(task?.listId || null);
-        setDueAt(null);
-        setReminderAt(null);
+        setDueAt(task?.dueAt || null);
+        setStartAt(task?.startAt || null);
+        setReminderAt(task?.reminderAt || null);
         setRecurring(null);
         setPriority('medium');
         setSubtasks([]);
@@ -102,7 +106,7 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
   const submit = () => {
     if (!title.trim()) return;
     softFeedback(settings);
-    onSave({ title: title.trim(), note: note.trim(), listId, dueAt, reminderAt, recurring, priority, subtasks });
+    onSave({ title: title.trim(), note: note.trim(), listId, dueAt, startAt, reminderAt, recurring, priority, subtasks });
   };
 
   // write a chosen ISO into whichever field the picker was opened for
@@ -111,6 +115,7 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
       setReminderAt(iso);
     } else {
       setDueAt(iso);
+      setStartAt(null);
       reanchorReminder(iso);
     }
   };
@@ -129,6 +134,7 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
   const pickQuick = (type) => {
     softFeedback(settings);
     const now = new Date();
+    setStartAt(null);
     if (type === 'today') {
       const iso = startOfDay(now).toISOString();
       setDueAt(iso);
@@ -262,7 +268,7 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
       {/* sheet — padding behavior on BOTH platforms lifts the sheet
           reliably above the keyboard even inside a Modal window */}
       <KeyboardAvoidingView
-        behavior="padding"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={s.kavWrap}
         keyboardVerticalOffset={0}
       >
@@ -288,7 +294,17 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
                 placeholder="What needs doing?"
                 placeholderTextColor={theme.text4}
                 value={title}
-                onChangeText={setTitle}
+                onChangeText={(text) => {
+                  setTitle(text);
+                  const results = chrono.parse(text, new Date(), { forwardDate: true });
+                  if (results.length > 0) {
+                    const parsedDate = results[0].start.date();
+                    setDueAt(parsedDate.toISOString());
+                    if (results[0].start.isCertain('hour')) {
+                      setReminderAt(parsedDate.toISOString());
+                    }
+                  }
+                }}
                 returnKeyType="done"
                 onSubmitEditing={() => canSend && submit()}
                 selectionColor={theme.accent}
@@ -335,8 +351,10 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
             {dueAt && (
               <View style={s.dueBadge}>
                 <Icon.cal size={14} color={theme.accent} />
-                <Text style={[s.dueText, { color: theme.accent }]}>Due {dueLabel(dueAt)}</Text>
-                <Pressable onPress={() => { setDueAt(null); }} hitSlop={8}>
+                <Text style={[s.dueText, { color: theme.accent }]}>
+                  {startAt ? `Schedule: ${dueLabel(startAt)} → ${dueLabel(dueAt)}` : `Due ${dueLabel(dueAt)}`}
+                </Text>
+                <Pressable onPress={() => { setDueAt(null); setStartAt(null); }} hitSlop={8}>
                   <Text style={{ color: theme.text3, fontSize: 16, fontWeight: '700' }}>×</Text>
                 </Pressable>
               </View>
@@ -409,7 +427,7 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
             )}
 
             {/* subtasks checklist editing section */}
-            {mode === 'edit' && (
+            {(mode === 'edit' || mode === 'add') && (
               <>
                 <Text style={[s.label, { color: theme.text3, marginTop: 18 }]}>CHECKLIST / SUBTASKS</Text>
                 <View style={s.subtaskEditSection}>
@@ -474,7 +492,7 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
               </Pressable>
             )}
 
-            <View style={{ height: 12 }} />
+            <View style={{ height: 40 }} />
           </ScrollView>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -568,6 +586,7 @@ function makeStyles(t) {
   return StyleSheet.create({
     kavWrap: { flex: 1, justifyContent: 'flex-end' },
     sheet: {
+      flexShrink: 1,
       backgroundColor: t.surface,
       borderTopLeftRadius: 26,
       borderTopRightRadius: 26,

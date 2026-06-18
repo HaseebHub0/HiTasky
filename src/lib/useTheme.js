@@ -1,8 +1,16 @@
+import { useMemo } from 'react';
 import { useStore } from './store.js';
-import { makeTheme } from '../theme.js';
+import { makeTheme, updateFontGlobals } from '../theme.js';
 
 // Derives the active palette from the live settings.
 export function useAppTheme() {
   const { state } = useStore();
-  return makeTheme(state.settings.theme, state.settings.accent, state.settings.pet);
+  
+  return useMemo(() => {
+    updateFontGlobals(state.settings.fontStyle || 'editorial');
+    return {
+      ...makeTheme(state.settings.theme, state.settings.accent, state.settings.pet),
+      fontStyle: state.settings.fontStyle || 'editorial'
+    };
+  }, [state.settings.theme, state.settings.accent, state.settings.pet, state.settings.fontStyle]);
 }

@@ -238,6 +238,12 @@ export const Icon = {
       />
     </S>
   ),
+  timer: ({ size = 18, color = '#999' }) => (
+    <S width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx={12} cy={13} r={8} stroke={color} strokeWidth={1.6} fill="none" />
+      <Path d="M12 9v4l2 2M9 4h6M12 4v2" stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </S>
+  ),
 };
 
 // HiTasky brand mark — the waving hand, drawn as vector (matches the
@@ -274,7 +280,7 @@ export function NibMark({ size = 22, color }) {
   } catch (e) {
     theme = { mode: 'dark' };
   }
-  const isBrandLogo = !color || color === theme.accent || color === theme.text3;
+  const isBrandLogo = !color || color === 'brand';
   if (isBrandLogo) {
     const source = require('../../assets/3.png');
     return (
@@ -285,12 +291,13 @@ export function NibMark({ size = 22, color }) {
       />
     );
   }
+  const fillCol = color || (theme && theme.accent) || '#e58a4b';
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path d="M12 2 L20 12 L12 22 L4 12 Z" fill={color} opacity={0.18} />
-      <Path d="M12 2 L20 12 L12 22 L4 12 Z" stroke={color} strokeWidth={1.6} strokeLinejoin="round" fill="none" />
-      <Path d="M12 9 V17" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
-      <Circle cx={12} cy={13.6} r={1.5} fill={color} />
+      <Path d="M12 2 L20 12 L12 22 L4 12 Z" fill={fillCol} opacity={0.18} />
+      <Path d="M12 2 L20 12 L12 22 L4 12 Z" stroke={fillCol} strokeWidth={1.6} strokeLinejoin="round" fill="none" />
+      <Path d="M12 9 V17" stroke={fillCol} strokeWidth={1.6} strokeLinecap="round" />
+      <Circle cx={12} cy={13.6} r={1.5} fill={fillCol} />
     </Svg>
   );
 }

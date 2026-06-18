@@ -253,30 +253,26 @@ export async function scheduleMorningDigest(tasks) {
 
   const now = new Date();
   const triggerTime = new Date(now);
+  // Always schedule for tomorrow at 8:00 AM to ensure that if the app is
+  // opened before 8 AM today, today's notification is skipped.
+  triggerTime.setDate(triggerTime.getDate() + 1);
   triggerTime.setHours(8, 0, 0, 0);
-  if (triggerTime.getTime() <= now.getTime()) {
-    // Already past 8:00 AM today, schedule for tomorrow at 8:00 AM
-    triggerTime.setDate(triggerTime.getDate() + 1);
-  }
 
   const streak = calculateStreak(tasks);
-  const todayActiveTasks = (tasks || []).filter(
-    (t) => !t.isCompleted && (isToday(t.dueAt) || isOverdue(t.dueAt) || (!t.dueAt && isToday(t.createdAt)))
-  );
-  const todayCount = todayActiveTasks.length;
-
+  
+  // Only warn if they actually have a streak to lose
   let body = '';
-  if (todayCount > 0) {
-    body = `You have ${todayCount} task${todayCount === 1 ? '' : 's'} today. Streak: ${streak} day${streak === 1 ? '' : 's'}.`;
+  if (streak > 0) {
+    body = `Quick, open the app! Don't let your ${streak}-day streak break. 🔥`;
   } else {
-    body = `Your day is clear! Streak: ${streak} day${streak === 1 ? '' : 's'}.`;
+    body = `Start your morning strong. Build your streak today! 🔥`;
   }
 
   try {
     await Notifications.scheduleNotificationAsync({
       identifier,
       content: {
-        title: 'Morning Digest',
+        title: 'HiTasky',
         body,
         sound: true,
       },

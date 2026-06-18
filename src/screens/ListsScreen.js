@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useStore } from '../lib/store.js';
 import { useAppTheme } from '../lib/useTheme.js';
-import { listSummary, tasksForList, inboxTasks } from '../lib/selectors.js';
+import { listSummary, tasksForList, inboxTasks, calculateStreak } from '../lib/selectors.js';
 import { Icon } from '../components/icons.js';
 import { Wordmark } from '../components/Wordmark.js';
 import { TaskCard } from '../components/TaskCard.js';
@@ -22,6 +22,7 @@ import { getPet } from '../lib/pets.js';
 import { Pet, HeaderPet } from '../components/Pet.js';
 import { Kicker, Display, H2, ConfirmDialog, EmptyState } from '../components/ui.js';
 import { FONT, ACCENTS, softOf } from '../theme.js';
+import { AppHeader } from '../components/AppHeader.js';
 
 const LIST_ICONS = [
   { id: 'list', label: 'List' },
@@ -31,30 +32,6 @@ const LIST_ICONS = [
   { id: 'heart', label: 'Love' },
   { id: 'star', label: 'Star' },
 ];
-
-function ListsOverviewHeader({ theme, settings, s, onOpenPets, onOpenSettings }) {
-  const currentPet = settings?.pet || 'zen';
-
-  return (
-    <View style={s.header}>
-      <View style={s.brandRow}>
-        <HeaderPet petId={currentPet} theme={theme} onPress={onOpenPets} />
-        <Wordmark theme={theme} size={22} />
-      </View>
-      <View style={s.headerRight}>
-        <Pressable
-          onPress={onOpenSettings}
-          hitSlop={8}
-          style={s.settingsBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Open settings"
-        >
-          <Icon.sliders size={18} color={theme.text3} />
-        </Pressable>
-      </View>
-    </View>
-  );
-}
 
 /* ================================================================
    OVERVIEW — every list at a glance
@@ -80,10 +57,9 @@ export function ListsOverview({ onOpenList, onNewList, onOpenPets, onOpenSetting
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-      <ListsOverviewHeader
+      <AppHeader
         theme={theme}
         settings={state.settings}
-        s={s}
         onOpenPets={onOpenPets}
         onOpenSettings={onOpenSettings}
       />
@@ -199,6 +175,7 @@ export function ListDetail({ listId, onBack, onOpenTask, onAddTask, onTriggerPay
 
   const isInbox = !listId;
   const list = isInbox ? null : state.lists.find((l) => l.id === listId);
+  const streak = state.settings?.streak || 0;
 
   if (!isInbox && !list) {
     onBack();
@@ -227,6 +204,12 @@ export function ListDetail({ listId, onBack, onOpenTask, onAddTask, onTriggerPay
           <Text style={[s.backText, { color: theme.text3 }]}>Lists</Text>
         </Pressable>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {streak > 0 && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: theme.surface2, gap: 4 }}>
+              <Text style={{ fontSize: 12 }}>🔥</Text>
+              <Text style={{ fontFamily: FONT.sansSemi, fontSize: 12, color: theme.text2 }}>{streak}</Text>
+            </View>
+          )}
           <HeaderPet petId={state.settings.pet || 'zen'} theme={theme} onPress={onOpenPets} />
           <Pressable
             onPress={onOpenSettings}

@@ -57,8 +57,10 @@ function seed() {
       purchasedAt: null,
       accent: null,
       pet: 'zen',
-      sansTitles: false,
+      fontStyle: 'editorial',
       sortBy: 'smart',
+      streak: 0,
+      streakLastDate: null,
     },
   };
 }
@@ -152,6 +154,7 @@ function migrate(data) {
     tasks: (Array.isArray(data.tasks) ? data.tasks : base.tasks).map((t) => ({
       recurring: null,
       priority: 'medium',
+      startAt: null,
       ...t,
     })),
     notes: Array.isArray(data.notes) ? data.notes : [],
@@ -159,16 +162,65 @@ function migrate(data) {
   return validateState(merged);
 }
 
+function getLocalDateString(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function checkAndResetStreak(settings) {
+  if (!settings) return settings;
+  const streak = settings.streak || 0;
+  const lastDate = settings.streakLastDate; // "YYYY-MM-DD" local time
+  if (streak > 0 && lastDate) {
+    const today = getLocalDateString();
+    const yesterday = getLocalDateString(new Date(Date.now() - 86400000));
+    if (lastDate !== today && lastDate !== yesterday) {
+      return {
+        ...settings,
+        streak: 0,
+      };
+    }
+  }
+  return settings;
+}
+
+function incrementStreak(settings) {
+  const today = getLocalDateString();
+  const currentStreak = settings?.streak || 0;
+  const lastDate = settings?.streakLastDate;
+
+  if (lastDate === today) {
+    return settings; // Already completed a task today
+  }
+
+  const yesterday = getLocalDateString(new Date(Date.now() - 86400000));
+  let newStreak = 1;
+  if (lastDate === yesterday) {
+    newStreak = currentStreak + 1;
+  }
+
+  return {
+    ...settings,
+    streak: newStreak,
+    streakLastDate: today,
+  };
+}
+
 /* ============================================================
    reducer (identical logic to web)
    ============================================================ */
 function reducer(state, action) {
   switch (action.type) {
-    case 'HYDRATE':
-      return action.payload;
+    case 'HYDRATE': {
+      const hydrated = action.payload;
+      if (hydrated && hydrated.settings) {
+        hydrated.settings = checkAndResetStreak(hydrated.settings);
+      }
+      return hydrated;
+    }
 
     case 'ADD_TASK': {
-      const { title, note, listId, dueAt, reminderAt, recurring, priority } = action.payload;
+      const { title, note, listId, dueAt, startAt, reminderAt, recurring, priority } = action.payload;
       if (!title || !title.trim()) return state;
       const minOrder = Math.min(0, ...state.tasks.map((t) => t.sortOrder)) - 1;
       const task = {
@@ -177,6 +229,7 @@ function reducer(state, action) {
         note: (note || '').trim(),
         listId: listId || null,
         dueAt: dueAt || null,
+        startAt: startAt || null,
         reminderAt: reminderAt || null,
         recurring: recurring || null,
         priority: priority || 'medium',
@@ -188,19 +241,34 @@ function reducer(state, action) {
       return { ...state, tasks: [task, ...state.tasks] };
     }
 
-    case 'UPDATE_TASK':
+    case 'UPDATE_TASK': {
+      const { id, patch } = action.payload;
+      const oldTask = state.tasks.find((t) => t.id === id);
+      const newTasks = state.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t));
+      let newSettings = state.settings;
+      if (patch.isCompleted && (!oldTask || !oldTask.isCompleted)) {
+        newSettings = incrementStreak(state.settings);
+      }
       return {
         ...state,
-        tasks: state.tasks.map((t) => (t.id === action.payload.id ? { ...t, ...action.payload.patch } : t)),
+        tasks: newTasks,
+        settings: newSettings,
       };
+    }
 
     case 'TOGGLE_TASK': {
       const { id, value } = action.payload;
+      const newTasks = state.tasks.map((t) =>
+        t.id === id ? { ...t, isCompleted: value, completedAt: value ? nowIso() : null } : t
+      );
+      let newSettings = state.settings;
+      if (value) {
+        newSettings = incrementStreak(state.settings);
+      }
       return {
         ...state,
-        tasks: state.tasks.map((t) =>
-          t.id === id ? { ...t, isCompleted: value, completedAt: value ? nowIso() : null } : t
-        ),
+        tasks: newTasks,
+        settings: newSettings,
       };
     }
 
@@ -337,6 +405,123 @@ function reducer(state, action) {
 
     case 'RESET':
       return seed();
+
+    case 'INJECT_MOCK_DATA': {
+      const mockTasks = [];
+      const now = new Date();
+      const nowIso = () => new Date().toISOString();
+      
+      // Seed lists if empty
+      let lists = [...state.lists];
+      if (lists.length === 0) {
+        lists = [
+          { id: uid('l'), name: 'Work 📁', accent: ACCENTS[0], sortOrder: 0, createdAt: nowIso() },
+          { id: uid('l'), name: 'Personal 🏠', accent: ACCENTS[1], sortOrder: 1, createdAt: nowIso() },
+          { id: uid('l'), name: 'Fitness ⚡', accent: ACCENTS[2], sortOrder: 2, createdAt: nowIso() },
+        ];
+      }
+      
+      const getRandomListId = () => {
+        const rand = Math.random();
+        if (rand < 0.2) return null; // Inbox
+        return lists[Math.floor(Math.random() * lists.length)].id;
+      };
+
+      // 1. Generate 50 completed tasks from 2024 to now
+      const start2024 = new Date(2024, 0, 1).getTime();
+      const endNow = now.getTime();
+      const priorities = ['low', 'medium', 'high'];
+      
+      const taskTitlesCompleted = [
+        "Review project requirements", "Send weekly newsletter", "Prepare presentation deck",
+        "Team standup meeting", "Refactor authentication utility", "Update dependencies",
+        "Write unit tests for checkout", "Fix styling in profile screen", "Database backup",
+        "Write documentation", "Review pull requests", "Client onboarding call",
+        "Design landing page mockup", "Configure CI/CD pipelines", "Optimize image assets",
+        "Plan next sprint", "Conduct user interviews", "Bug triage session",
+        "Write API endpoint tests", "Deploy staging release", "Review analytics dashboard",
+        "Monthly budget planning", "Gym workout session", "Car service appointment",
+        "Read tech blog posts", "Update onboarding slides", "Clean coding workspace",
+        "Pay hosting invoice", "Backup local projects", "Setup environment config",
+        "Draft marketing copy", "Schedule team one-on-ones", "Renew SSL certificate",
+        "Review security logs", "Audit user feedback", "Organize asset folder",
+        "Brainstorm feature ideas", "Update terms of service", "Answer support tickets",
+        "Clean inbox", "Fix keyboard scroll issue", "Format code guidelines",
+        "Buy premium domain", "Research competitors", "Submit tax documents",
+        "Upgrade Node.js version", "Write release notes", "Check server health logs",
+        "Optimize SQL queries", "Coffee chat with product manager"
+      ];
+
+      for (let i = 0; i < 50; i++) {
+        const randTime = start2024 + Math.random() * (endNow - start2024);
+        const taskDate = new Date(randTime);
+        const iso = taskDate.toISOString();
+        
+        mockTasks.push({
+          id: uid('t'),
+          title: taskTitlesCompleted[i % taskTitlesCompleted.length] + ` (Mock #${i+1})`,
+          note: `Auto-generated completed task for testing performance.`,
+          listId: getRandomListId(),
+          dueAt: iso,
+          startAt: null,
+          reminderAt: null,
+          recurring: null,
+          priority: priorities[Math.floor(Math.random() * priorities.length)],
+          isCompleted: true,
+          completedAt: iso,
+          createdAt: new Date(randTime - 86400000).toISOString(),
+          sortOrder: i,
+        });
+      }
+
+      // 2. Generate 20 active scheduled tasks
+      const taskTitlesActive = [
+        "Develop dark mode toggles", "Write performance benchmarking", "Review database schema",
+        "Update profile picture settings", "Fix search button padding", "Plan marketing campaign",
+        "Test push notifications", "Clean up temporary logs", "Setup Sentry logging",
+        "Design dashboard navigation", "Draft product roadmap", "Refactor state selectors",
+        "Polish calendar styling", "Audit accessibility features", "Update user profile layout",
+        "Check email marketing logs", "Research native widgets", "Write API contracts",
+        "Optimize bundle file sizes", "Finalize release candidates"
+      ];
+
+      for (let i = 0; i < 20; i++) {
+        // Random offset: from -1 day (overdue) to +30 days (future)
+        const dayOffset = Math.floor(Math.random() * 32) - 1; 
+        const randTime = endNow + dayOffset * 24 * 60 * 60 * 1000;
+        const taskDate = new Date(randTime);
+        
+        const hasHour = Math.random() > 0.3;
+        if (hasHour) {
+          taskDate.setHours(7 + Math.floor(Math.random() * 15), 0, 0, 0); 
+        } else {
+          taskDate.setHours(0, 0, 0, 0); 
+        }
+        
+        const iso = taskDate.toISOString();
+        mockTasks.push({
+          id: uid('t'),
+          title: taskTitlesActive[i % taskTitlesActive.length] + ` (Mock Scheduled #${i+1})`,
+          note: `Auto-generated active scheduled task for testing scheduler performance.`,
+          listId: getRandomListId(),
+          dueAt: iso,
+          startAt: null,
+          reminderAt: hasHour ? iso : null,
+          recurring: null,
+          priority: priorities[Math.floor(Math.random() * priorities.length)],
+          isCompleted: false,
+          completedAt: null,
+          createdAt: nowIso(),
+          sortOrder: 1000 + i,
+        });
+      }
+
+      return {
+        ...state,
+        lists,
+        tasks: [...mockTasks, ...state.tasks]
+      };
+    }
 
     default:
       return state;
@@ -695,6 +880,10 @@ function makeActions(dispatch) {
     reset: () => {
       triggerLayoutAnimation();
       dispatch({ type: 'RESET' });
+    },
+    injectMockData: () => {
+      triggerLayoutAnimation();
+      dispatch({ type: 'INJECT_MOCK_DATA' });
     },
   };
 }

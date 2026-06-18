@@ -8,11 +8,12 @@
 // SettingsScreen). One component, one place to update.
 // ============================================================
 import React, { useMemo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View, Text } from 'react-native';
 import { Wordmark } from './Wordmark.js';
 import { HeaderPet } from './Pet.js';
 import { Icon } from './icons.js';
 import { FONT } from '../theme.js';
+import { useStore } from '../lib/store.js';
 
 /**
  * @param {object}   theme         current theme object
@@ -23,8 +24,10 @@ import { FONT } from '../theme.js';
  * @param {React.ReactNode} [right] optional extra right-side content
  */
 export function AppHeader({ theme, settings, onOpenPets, onOpenSettings, onBack, right }) {
+  const { state } = useStore();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const currentPet = settings?.pet || 'zen';
+  const streak = state.settings?.streak || 0;
 
   return (
     <View style={s.header}>
@@ -33,6 +36,12 @@ export function AppHeader({ theme, settings, onOpenPets, onOpenSettings, onBack,
         <Wordmark theme={theme} size={22} />
       </View>
       <View style={s.headerRight}>
+        {streak > 0 && (
+          <View style={[s.streakBadge, { backgroundColor: theme.surface2 }]}>
+            <Text style={s.streakEmoji}>🔥</Text>
+            <Text style={[s.streakText, { color: theme.text2 }]}>{streak}</Text>
+          </View>
+        )}
         {right}
         {onBack ? (
           <Pressable
@@ -91,6 +100,22 @@ function makeStyles(t) {
       backgroundColor: t.surface2,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    streakBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+      marginLeft: 6,
+      gap: 4,
+    },
+    streakEmoji: {
+      fontSize: 12,
+    },
+    streakText: {
+      fontFamily: FONT.sansSemi,
+      fontSize: 12,
     },
   });
 }

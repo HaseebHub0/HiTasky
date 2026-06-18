@@ -32,63 +32,30 @@ const { width: SCREEN_W } = Dimensions.get('window');
 
 // Stacked preview components resembling real UI mockups for a handcrafted feel (ref: Warren Buffett book stack style)
 function WelcomeCardStack({ theme }) {
-  const floatAnim = useRef(new Animated.Value(0)).current;
   const enter = useRef(new Animated.Value(0)).current;
-  const glow = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.spring(enter, { toValue: 1, friction: 7, tension: 55, useNativeDriver: true }).start();
-
-    const mk = (val, d) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(val, { toValue: 1, duration: d, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(val, { toValue: 0, duration: d, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        ])
-      );
-    const a = mk(floatAnim, 3400);
-    const b = mk(glow, 2600);
-    a.start();
-    b.start();
-    return () => { a.stop(); b.stop(); };
   }, []);
 
-  // entrance + continuous pseudo-3D sway (perspective + multi-axis rotation)
-  const enterScale = enter.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] });
-  const enterTY = enter.interpolate({ inputRange: [0, 1], outputRange: [34, 0] });
-  const rotY = floatAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['-10deg', '0deg', '10deg'] });
-  const rotYBack = floatAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['8deg', '0deg', '-8deg'] });
-  const rotX = floatAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['6deg', '0deg', '6deg'] });
-  const translateY1 = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [-6, 6] });
-  const translateY2 = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [6, -6] });
-  const glowScale = glow.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.15] });
-  const glowOp = glow.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.42] });
+  const enterScale = enter.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] });
+  const enterTY = enter.interpolate({ inputRange: [0, 1], outputRange: [12, 0] });
 
   return (
-    <View style={stackStyles.container}>
-      {/* soft ember glow behind the stack */}
-      <Animated.View
-        pointerEvents="none"
-        style={[stackStyles.glow, { backgroundColor: theme.accent, opacity: glowOp, transform: [{ scale: glowScale }] }]}
-      />
-
-      {/* Card 1: Completed Task (tilted right, background) */}
+    <View style={[stackStyles.container, { height: 160 }]}>
+      {/* Card 1: Completed Task (flat, slightly faded, behind) */}
       <Animated.View
         style={[
           stackStyles.card,
           {
             backgroundColor: theme.surface,
             borderColor: theme.hairline,
-            opacity: enter.interpolate({ inputRange: [0, 1], outputRange: [0, 0.7] }),
+            opacity: enter.interpolate({ inputRange: [0, 1], outputRange: [0, 0.4] }),
             transform: [
-              { perspective: 900 },
-              { translateX: 28 },
-              { translateY: Animated.add(enterTY, translateY2) },
-              { rotateX: rotX },
-              { rotateY: rotYBack },
-              { rotateZ: '5deg' },
-              { scale: enterScale },
+              { translateY: Animated.add(enterTY, -18) },
+              { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.9, 0.94] }) },
             ],
+            zIndex: 1,
           },
         ]}
       >
@@ -105,7 +72,7 @@ function WelcomeCardStack({ theme }) {
         </View>
       </Animated.View>
 
-      {/* Card 2: Active Task (tilted left, foreground focus) */}
+      {/* Card 2: Active Task (flat, crisp, foreground) */}
       <Animated.View
         style={[
           stackStyles.card,
@@ -114,19 +81,15 @@ function WelcomeCardStack({ theme }) {
             borderColor: theme.accent,
             borderWidth: 1.5,
             shadowColor: theme.accent,
-            shadowOpacity: theme.mode === 'light' ? 0.12 : 0.32,
-            shadowRadius: 22,
-            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: theme.mode === 'light' ? 0.08 : 0.15,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 6 },
             opacity: enter,
             transform: [
-              { perspective: 900 },
-              { translateX: -20 },
-              { translateY: Animated.add(enterTY, translateY1) },
-              { rotateX: rotX },
-              { rotateY: rotY },
-              { rotateZ: '-3deg' },
+              { translateY: enterTY },
               { scale: enterScale },
             ],
+            zIndex: 2,
           },
         ]}
       >
@@ -149,34 +112,10 @@ function WelcomeCardStack({ theme }) {
 }
 
 function OrganizeListPreview({ theme }) {
-  const floatAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
-          duration: 2800,
-          easing: Easing.bezier(0.445, 0.05, 0.55, 0.95),
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 2800,
-          easing: Easing.bezier(0.445, 0.05, 0.55, 0.95),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [floatAnim]);
-
-  const translateY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [-3, 3] });
-  const rotY = floatAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['-12deg', '0deg', '12deg'] });
-
   return (
     <View style={{ width: 110, height: 95, justifyContent: 'center', alignItems: 'center' }}>
       {/* Background card */}
-      <Animated.View
+      <View
         style={{
           position: 'absolute',
           width: 90,
@@ -187,35 +126,27 @@ function OrganizeListPreview({ theme }) {
           borderWidth: 1,
           opacity: 0.6,
           transform: [
-            { perspective: 600 },
-            { translateX: -10 },
-            { translateY: translateY },
-            { rotateY: rotY },
-            { rotateZ: '-8deg' },
+            { translateY: -6 },
+            { scale: 0.92 }
           ],
         }}
       />
       {/* Foreground card */}
-      <Animated.View
+      <View
         style={{
           position: 'absolute',
           width: 95,
           height: 55,
           borderRadius: 12,
           backgroundColor: theme.surface,
-          borderColor: theme.accent,
+          borderColor: theme.hairline2,
           borderWidth: 1.5,
           padding: 8,
           justifyContent: 'center',
-          shadowColor: theme.accent,
-          shadowOpacity: 0.1,
-          shadowRadius: 10,
-          transform: [
-            { perspective: 600 },
-            { translateY: translateY },
-            { rotateY: rotY },
-            { rotateZ: '6deg' },
-          ],
+          shadowColor: '#000',
+          shadowOpacity: theme.mode === 'light' ? 0.04 : 0.2,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 4 },
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -229,39 +160,15 @@ function OrganizeListPreview({ theme }) {
             </Text>
           </View>
         </View>
-      </Animated.View>
+      </View>
     </View>
   );
 }
 
 function FocusTaskPreview({ theme }) {
-  const floatAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: 1,
-          duration: 3000,
-          easing: Easing.bezier(0.445, 0.05, 0.55, 0.95),
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 3000,
-          easing: Easing.bezier(0.445, 0.05, 0.55, 0.95),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [floatAnim]);
-
-  const translateY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [3, -3] });
-  const rotY = floatAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['10deg', '0deg', '-10deg'] });
-
   return (
     <View style={{ width: 110, height: 95, justifyContent: 'center', alignItems: 'center' }}>
-      <Animated.View
+      <View
         style={{
           width: 105,
           borderRadius: 12,
@@ -272,12 +179,6 @@ function FocusTaskPreview({ theme }) {
           shadowColor: theme.accent,
           shadowOpacity: 0.15,
           shadowRadius: 8,
-          transform: [
-            { perspective: 600 },
-            { translateY: translateY },
-            { rotateY: rotY },
-            { rotateZ: '-3deg' },
-          ],
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -293,7 +194,7 @@ function FocusTaskPreview({ theme }) {
             </Text>
           </View>
         </View>
-      </Animated.View>
+      </View>
     </View>
   );
 }
@@ -358,45 +259,13 @@ export function OnboardingScreen() {
   const [firstTaskTitle, setFirstTaskTitle] = useState('');
   const flatRef = useRef(null);
   const fadeIn = useRef(new Animated.Value(0)).current;
-  const enter = useRef(new Animated.Value(0)).current; // panel content fade/rise
-
-  // Interactive Zen Pond ripples
+  const enter = useRef(new Animated.Value(0)).current; // initial mount fade
+  const scrollX = useRef(new Animated.Value(0)).current; // swipe animation
   const [ripples, setRipples] = useState([]);
 
-  // Drifting leaves animations
-  const leaf1 = useRef(new Animated.Value(0)).current;
-  const leaf2 = useRef(new Animated.Value(0)).current;
-  const leaf3 = useRef(new Animated.Value(0)).current;
-
-  const theme = makeTheme(sel, state.settings.accent, state.settings.pet || 'zen'); // Follow selected pet theme
-
-  // live-apply theme as user picks
-  useEffect(() => {
-    if (state.settings.theme !== sel) actions.setSetting('theme', sel);
-  }, [sel]);
-
-  // first panel fades in on mount + start drifting leaves
+  // first panel fades in on mount
   useEffect(() => {
     Animated.timing(enter, { toValue: 1, duration: 520, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-
-    const floatAnim = (anim, duration, delay) => {
-      anim.setValue(0);
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(anim, {
-            toValue: 1,
-            duration: duration,
-            easing: Easing.linear,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    };
-
-    floatAnim(leaf1, 15000, 0);
-    floatAnim(leaf2, 19000, 2500);
-    floatAnim(leaf3, 23000, 6000);
   }, []);
 
   const handleTouchStart = (e) => {
@@ -415,14 +284,23 @@ export function OnboardingScreen() {
     });
   };
 
+  const theme = makeTheme(sel, state.settings.accent, state.settings.pet || 'zen');
+
+  useEffect(() => {
+    if (state.settings.theme !== sel) actions.setSetting('theme', sel);
+  }, [sel]);
+
   const goTo = useCallback((p) => {
     const target = Math.max(0, Math.min(p, 8));
     flatRef.current?.scrollToIndex({ index: target, animated: true });
     setPage(target);
-    // replay the content entrance for the panel we just landed on
-    enter.setValue(0);
-    Animated.timing(enter, { toValue: 1, duration: 460, delay: 120, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, []);
+
+  const onMomentumScrollEnd = useCallback((e) => {
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const p = Math.round(offsetX / SCREEN_W);
+    if (p !== page) setPage(p);
+  }, [page]);
 
   const next = useCallback(() => goTo(page + 1), [page]);
   const skip = useCallback(() => goTo(8), []);
@@ -463,33 +341,8 @@ export function OnboardingScreen() {
       : <PurchasePanel key="purchase" theme={theme} s={s} finish={finish} />,
   ];
 
-  // Interpolate leaves positions
-  const leafX1 = leaf1.interpolate({ inputRange: [0, 1], outputRange: [-50, SCREEN_W + 50] });
-  const leafY1 = leaf1.interpolate({ inputRange: [0, 0.5, 1], outputRange: [100, 130, 90] });
-  const leafRot1 = leaf1.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-
-  const leafX2 = leaf2.interpolate({ inputRange: [0, 1], outputRange: [-50, SCREEN_W + 50] });
-  const leafY2 = leaf2.interpolate({ inputRange: [0, 0.5, 1], outputRange: [380, 340, 400] });
-  const leafRot2 = leaf2.interpolate({ inputRange: [0, 1], outputRange: ['90deg', '450deg'] });
-
-  const leafX3 = leaf3.interpolate({ inputRange: [0, 1], outputRange: [SCREEN_W + 50, -50] });
-  const leafY3 = leaf3.interpolate({ inputRange: [0, 0.5, 1], outputRange: [640, 670, 620] });
-  const leafRot3 = leaf3.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-270deg'] });
-
   return (
     <View style={[s.root, { backgroundColor: theme.bg }]} onTouchStart={handleTouchStart}>
-      {/* Drifting Leaves Background */}
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <View style={{ position: 'absolute', top: 0, left: 0 }}>
-          <Animated.Text style={{ fontSize: 24, zIndex: 1, transform: [{ translateX: leafX1 }, { translateY: leafY1 }, { rotate: leafRot1 }], opacity: theme.mode === 'light' ? 0.22 : 0.12 }}>🍃</Animated.Text>
-        </View>
-        <View style={{ position: 'absolute', top: 0, left: 0 }}>
-          <Animated.Text style={{ fontSize: 24, zIndex: 1, transform: [{ translateX: leafX2 }, { translateY: leafY2 }, { rotate: leafRot2 }], opacity: theme.mode === 'light' ? 0.18 : 0.1 }}>🌿</Animated.Text>
-        </View>
-        <View style={{ position: 'absolute', top: 0, left: 0 }}>
-          <Animated.Text style={{ fontSize: 24, zIndex: 1, transform: [{ translateX: leafX3 }, { translateY: leafY3 }, { rotate: leafRot3 }], opacity: theme.mode === 'light' ? 0.15 : 0.08 }}>🍃</Animated.Text>
-        </View>
-      </View>
 
       {/* Zen Pond Touch Ripples */}
       {ripples.map((r) => {
@@ -524,27 +377,59 @@ export function OnboardingScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <FlatList
+        <Animated.FlatList
           ref={flatRef}
           data={panels}
           extraData={theme}
           horizontal
           pagingEnabled
-          scrollEnabled={false}
+          scrollEnabled={true}
           showsHorizontalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyExtractor={(_, i) => String(i)}
-          renderItem={({ item, index }) => (
-            <Animated.View
-              style={{
-                width: SCREEN_W,
-                opacity: index === page ? enter : 1,
-                transform: [{ translateY: index === page ? enter.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) : 0 }],
-              }}
-            >
-              {item}
-            </Animated.View>
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+            { useNativeDriver: true }
           )}
+          onMomentumScrollEnd={onMomentumScrollEnd}
+          renderItem={({ item, index }) => {
+            const inputRange = [
+              (index - 1) * SCREEN_W,
+              index * SCREEN_W,
+              (index + 1) * SCREEN_W
+            ];
+            const scale = scrollX.interpolate({
+              inputRange,
+              outputRange: [0.85, 1, 0.85],
+              extrapolate: 'clamp'
+            });
+            const opacity = scrollX.interpolate({
+              inputRange,
+              outputRange: [0, 1, 0],
+              extrapolate: 'clamp'
+            });
+            const translateY = scrollX.interpolate({
+              inputRange,
+              outputRange: [40, 0, 40],
+              extrapolate: 'clamp'
+            });
+
+            // The very first panel uses `enter` to fade in on mount, 
+            // but after that we use the swipe-driven opacity.
+            const finalOpacity = index === 0 ? Animated.multiply(opacity, enter) : opacity;
+
+            return (
+              <Animated.View
+                style={{
+                  width: SCREEN_W,
+                  opacity: finalOpacity,
+                  transform: [{ scale }, { translateY }],
+                }}
+              >
+                {item}
+              </Animated.View>
+            );
+          }}
           getItemLayout={(_, i) => ({ length: SCREEN_W, offset: SCREEN_W * i, index: i })}
         />
       </KeyboardAvoidingView>
@@ -828,7 +713,7 @@ function WelcomePanel({ theme, s, next, finish }) {
         </View>
         <WelcomeCardStack theme={theme} />
         <Text style={[s.obTitle, { textAlign: 'center', fontSize: 32, color: theme.text, lineHeight: 36 }]}>
-          A quieter way to{'\n'}keep your <Text style={{ fontStyle: 'italic' }}>days.</Text>
+          A space for your{'\n'}thoughts & <Text style={{ fontStyle: 'italic' }}>tasks.</Text>
         </Text>
         <Text style={[s.obLede, { textAlign: 'center', marginTop: 10, color: theme.text2 }]}>
           {/* FREE-LAUNCH: drop the "One purchase" line while free-for-all is on.
@@ -856,10 +741,10 @@ function PrivatePanel({ theme, s, next, skip }) {
       <View style={[s.body, { justifyContent: 'center' }]}>
         <Text style={[s.obKicker, { color: theme.text3 }]}>01 · <Text style={{ color: theme.accent }}>Private</Text></Text>
         <Text style={[s.obTitle, { color: theme.text }]}>
-          Nothing leaves{'\n'}this <Text style={{ fontStyle: 'italic' }}>phone.</Text>
+          Your data is{'\n'}strictly <Text style={{ fontStyle: 'italic' }}>yours.</Text>
         </Text>
         <Text style={[s.obLede, { color: theme.text2 }]}>
-          No account. No cloud. No quiet tracking. Your tasks live right here — and nowhere else.
+          We don't do accounts. We don't do clouds. Everything stays right here on your phone, safe and sound.
         </Text>
       </View>
       <CTA label="Continue" theme={theme} onPress={next} />
@@ -1054,7 +939,7 @@ function RemindersPanel({ theme, s, next, skip }) {
       <View style={[s.body, { justifyContent: 'center' }]}>
         <Text style={[s.obKicker, { color: theme.text3 }]}>03 · <Text style={{ color: theme.accent }}>Gentle nudges</Text></Text>
         <Text style={[s.obTitle, { color: theme.text }]}>
-          Nudges that{'\n'}know when to <Text style={{ fontStyle: 'italic' }}>hush.</Text>
+          Nudges that{'\n'}respect your <Text style={{ fontStyle: 'italic' }}>peace.</Text>
         </Text>
 
         {/* Notification preview */}
@@ -1101,7 +986,7 @@ function ThemePanel({ theme, s, next, skip, sel, setSel }) {
       <View style={[s.body, { justifyContent: 'center' }]}>
         <Text style={[s.obKicker, { color: theme.text3 }]}>04 · <Text style={{ color: theme.accent }}>Make it yours</Text></Text>
         <Text style={[s.obTitle, { color: theme.text, marginBottom: 26 }]}>
-          Choose your <Text style={{ fontStyle: 'italic' }}>paper.</Text>
+          Set the perfect{'\n'}<Text style={{ fontStyle: 'italic' }}>mood.</Text>
         </Text>
 
         <ThemeCard kind="dark" on={sel === 'dark'} theme={theme} onPress={() => setSel('dark')} />

@@ -6,7 +6,7 @@ import React, { useCallback, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useStore } from '../lib/store.js';
 import { useAppTheme } from '../lib/useTheme.js';
-import { doneGroups, listName } from '../lib/selectors.js';
+import { doneGroups, listName, calculateStreak } from '../lib/selectors.js';
 import { Icon } from '../components/icons.js';
 import { Wordmark } from '../components/Wordmark.js';
 import { TaskCard } from '../components/TaskCard.js';
@@ -14,64 +14,7 @@ import { getPet } from '../lib/pets.js';
 import { Pet, HeaderPet } from '../components/Pet.js';
 import { Kicker, Display, H2, Meta, EmptyState } from '../components/ui.js';
 import { FONT } from '../theme.js';
-
-// Calculate the completion streak (consecutive days of completed tasks ending today or yesterday)
-function calculateStreak(tasks) {
-  const completedDates = new Set(
-    tasks
-      .filter((t) => t.isCompleted && t.completedAt)
-      .map((t) => {
-        const d = new Date(t.completedAt);
-        return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-      })
-  );
-
-  let streak = 0;
-  let checkDate = new Date();
-  const formatDate = (date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-
-  // If today has completion, count starting today
-  if (completedDates.has(formatDate(checkDate))) {
-    while (completedDates.has(formatDate(checkDate))) {
-      streak++;
-      checkDate.setDate(checkDate.getDate() - 1);
-    }
-  } else {
-    // Check if yesterday was completed
-    checkDate.setDate(checkDate.getDate() - 1);
-    if (completedDates.has(formatDate(checkDate))) {
-      while (completedDates.has(formatDate(checkDate))) {
-        streak++;
-        checkDate.setDate(checkDate.getDate() - 1);
-      }
-    }
-  }
-  return streak;
-}
-
-function DoneHeader({ theme, settings, s, onOpenPets, onOpenSettings }) {
-  const currentPet = settings?.pet || 'zen';
-
-  return (
-    <View style={s.header}>
-      <View style={s.brandRow}>
-        <HeaderPet petId={currentPet} theme={theme} onPress={onOpenPets} />
-        <Wordmark theme={theme} size={22} />
-      </View>
-      <View style={s.headerRight}>
-        <Pressable
-          onPress={onOpenSettings}
-          hitSlop={8}
-          style={s.settingsBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Open settings"
-        >
-          <Icon.sliders size={18} color={theme.text3} />
-        </Pressable>
-      </View>
-    </View>
-  );
-}
+import { AppHeader } from '../components/AppHeader.js';
 
 export function DoneScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
   const { state, actions } = useStore();
@@ -106,7 +49,7 @@ export function DoneScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
   });
 
   const completedThisWeekCount = dayCounts.reduce((acc, curr) => acc + curr.count, 0);
-  const streak = calculateStreak(state.tasks);
+  const streak = state.settings?.streak || 0;
 
   // Calculate monthly stats
   const completedThisMonthCount = useMemo(() => {
@@ -207,10 +150,9 @@ export function DoneScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
       showsVerticalScrollIndicator={false}
     >
       {/* Header */}
-      <DoneHeader
+      <AppHeader
         theme={theme}
         settings={state.settings}
-        s={s}
         onOpenPets={onOpenPets}
         onOpenSettings={onOpenSettings}
       />

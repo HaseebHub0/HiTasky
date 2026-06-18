@@ -29,6 +29,11 @@ import {
   HankenGrotesk_600SemiBold,
   HankenGrotesk_700Bold,
 } from '@expo-google-fonts/hanken-grotesk';
+import { Caveat_400Regular, Caveat_700Bold } from '@expo-google-fonts/caveat';
+import { Mali_400Regular, Mali_500Medium, Mali_600SemiBold, Mali_700Bold, Mali_400Regular_Italic } from '@expo-google-fonts/mali';
+import { Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import { PlayfairDisplay_400Regular, PlayfairDisplay_500Medium, PlayfairDisplay_400Regular_Italic } from '@expo-google-fonts/playfair-display';
+import { SpaceMono_400Regular, SpaceMono_700Bold, SpaceMono_400Regular_Italic } from '@expo-google-fonts/space-mono';
 
 import * as Updates from 'expo-updates';
 import { StoreProvider, useStore } from './src/lib/store.js';
@@ -42,6 +47,7 @@ import { initCrashReporting } from './src/lib/crash.js';
 import { checkIntegrity, isProductionBuild } from './src/lib/security.js';
 import { AdBanner, recordCompletionForAd, showInterstitial, markAdShown } from './src/lib/adManager.js';
 import { emitPetReaction, getPet } from './src/lib/pets.js';
+import { recordCompletion } from './src/lib/greeting.js';
 
 import { BottomNav } from './src/components/BottomNav.js';
 import { Fab, Toast, PaywallDialog, RatingDialog, TrialBanner } from './src/components/ui.js';
@@ -51,6 +57,8 @@ import { SearchModal } from './src/components/SearchModal.js';
 import { PetShop } from './src/components/PetShop.js';
 import { FeedbackDialog } from './src/components/FeedbackDialog.js';
 import { Confetti } from './src/components/Confetti.js';
+import { FocusTimer } from './src/components/FocusTimer.js';
+import { BrainDump } from './src/components/BrainDump.js';
 import { FONT, ACCENTS } from './src/theme.js';
 import { Icon } from './src/components/icons.js';
 
@@ -60,6 +68,7 @@ import { NotesScreen } from './src/screens/NotesScreen.js';
 import { DoneScreen } from './src/screens/DoneScreen.js';
 import { SettingsScreen } from './src/screens/SettingsScreen.js';
 import { OnboardingScreen } from './src/screens/OnboardingScreen.js';
+import { ScheduleScreen } from './src/screens/ScheduleScreen.js';
 
 function AppShell() {
   const { state, actions, entitlement } = useStore();
@@ -78,9 +87,9 @@ function AppShell() {
     if (!FREE_FOR_ALL) initBilling();
   }, []);
 
-  // Automatic check for OTA updates on app launch
+  // Automatic check for OTA updates on app launch AND when resuming from background
   useEffect(() => {
-    (async () => {
+    const checkUpdates = async () => {
       if (Platform.OS === 'web') return;
       try {
         if (!Updates.isEnabled) return;
@@ -95,7 +104,19 @@ function AppShell() {
       } catch (e) {
         console.warn('[Updates] Auto update check failed:', e.message);
       }
-    })();
+    };
+
+    // Check on initial load
+    checkUpdates();
+
+    // Check when returning to foreground
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        checkUpdates();
+      }
+    });
+
+    return () => sub.remove();
   }, [showToast]);
 
   // Anti-tamper gate (Phase 2.3): only enforce on real production builds
@@ -123,6 +144,8 @@ function AppShell() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [proProduct, setProProduct] = useState(null);
   const [purchaseBusy, setPurchaseBusy] = useState(false);
+  const [focusTimerOpen, setFocusTimerOpen] = useState(false);
+  const [brainDumpOpen, setBrainDumpOpen] = useState(false);
 
   // Confetti trigger state
   const [confettiTrigger, setConfettiTrigger] = useState(false);
@@ -170,6 +193,8 @@ function AppShell() {
     }
     if (completedCount > prevCompletedRef.current) {
       track('task_completed', { delta: completedCount - prevCompletedRef.current });
+      // Record streak for the greeting display
+      recordCompletion();
     }
     prevCompletedRef.current = completedCount;
   }, [completedCount]);
@@ -260,6 +285,21 @@ function AppShell() {
     return undefined;
   }, [onboarded, completedTotal, allTabsSeen, reviewPrompted, snoozeElapsed]);
 
+  // Feedback popup — shows once after the user has explored all tabs.
+  // Separate from the rating flow: fires even without 3 completed tasks.
+  // The feedbackPrompted flag ensures it only fires once per install.
+  const feedbackPrompted = state.settings.feedbackPrompted;
+  useEffect(() => {
+    if (onboarded && allTabsSeen && !feedbackPrompted && !reviewPrompted) {
+      const t = setTimeout(() => {
+        actions.setSetting('feedbackPrompted', true);
+        setFeedbackOpen(true);
+      }, 1200);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [onboarded, allTabsSeen, feedbackPrompted, reviewPrompted]);
+
   // Open the device's Play Store review page (falls back to the web URL).
   const openPlayStoreReview = useCallback(async () => {
     const market = 'market://details?id=com.hitasky.app';
@@ -316,13 +356,19 @@ function AppShell() {
   }
 
   /* ---------- live app ---------- */
-  const openAdd = () => {
+  const openAdd = (initial = null) => {
     if (!state.settings.purchased && state.tasks.filter((t) => !t.isCompleted).length >= 15) {
       setPaywallOpen(true);
       return;
     }
     const defaultListId = tab === 'lists' && listView.mode === 'detail' ? listView.id : null;
-    setSheet({ mode: 'add', task: { listId: defaultListId } });
+    let initialTask = { listId: defaultListId };
+    if (typeof initial === 'string') {
+      initialTask.dueAt = initial;
+    } else if (initial && typeof initial === 'object') {
+      initialTask = { ...initialTask, ...initial };
+    }
+    setSheet({ mode: 'add', task: initialTask });
   };
   const openEdit = (task) => setSheet({ mode: 'edit', task });
 
@@ -402,6 +448,15 @@ function AppShell() {
         onOpenSettings={() => setTab('settings')}
       />
     );
+  } else if (tab === 'schedule') {
+    screen = (
+      <ScheduleScreen
+        onOpenTask={openEdit}
+        onAddTask={openAdd}
+        onOpenPets={() => setPetShopOpen(true)}
+        onOpenSettings={() => setTab('settings')}
+      />
+    );
   } else if (tab === 'lists') {
     screen =
       listView.mode === 'overview' ? (
@@ -458,7 +513,7 @@ function AppShell() {
     );
   }
 
-  const showFab = tab !== 'settings';
+  const showFab = tab === 'today';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -592,6 +647,26 @@ function AppShell() {
         onClose={() => setNoteSheet(null)}
       />
 
+      {/* Focus Timer */}
+      <FocusTimer
+        open={focusTimerOpen}
+        onClose={() => setFocusTimerOpen(false)}
+        theme={theme}
+        petId={state.settings.pet}
+      />
+
+      {/* Brain Dump */}
+      <BrainDump
+        open={brainDumpOpen}
+        onClose={() => setBrainDumpOpen(false)}
+        theme={theme}
+        onSave={(lines, listId) => {
+          lines.forEach((title) => actions.addTask({ title, listId }));
+          const targetName = listId ? state.lists.find((l) => l.id === listId)?.name || 'List' : 'Inbox';
+          showToast(`${lines.length} thought${lines.length > 1 ? 's' : ''} added to ${targetName}`);
+        }}
+      />
+
       {/* FAB Select Option Menu */}
       <Modal visible={fabMenuOpen} transparent animationType="fade" onRequestClose={() => setFabMenuOpen(false)}>
         <Pressable style={styles.scrim} onPress={() => setFabMenuOpen(false)} />
@@ -605,7 +680,18 @@ function AppShell() {
               }}
             >
               <Icon.tick size={18} color={theme.accent} />
-              <Text style={[styles.fabMenuText, { color: theme.text }]}>Create Task</Text>
+              <Text style={[styles.fabMenuText, { color: theme.text, fontFamily: FONT.sansSemi }]}>Create Task</Text>
+            </Pressable>
+            <View style={[styles.fabMenuDivider, { backgroundColor: theme.hairline }]} />
+            <Pressable
+              style={styles.fabMenuItem}
+              onPress={() => {
+                setFabMenuOpen(false);
+                setBrainDumpOpen(true);
+              }}
+            >
+              <Icon.send size={18} color={theme.accent} />
+              <Text style={[styles.fabMenuText, { color: theme.text, fontFamily: FONT.sansSemi }]}>Rapid Capture</Text>
             </Pressable>
             <View style={[styles.fabMenuDivider, { backgroundColor: theme.hairline }]} />
             <Pressable
@@ -616,7 +702,20 @@ function AppShell() {
               }}
             >
               <Icon.book size={18} color={theme.accent} />
-              <Text style={[styles.fabMenuText, { color: theme.text }]}>Create Note</Text>
+              <Text style={[styles.fabMenuText, { color: theme.text, fontFamily: FONT.sansSemi }]}>Create Note</Text>
+            </Pressable>
+            <View style={[styles.fabMenuDivider, { backgroundColor: theme.hairline }]} />
+            <Pressable
+              style={styles.fabMenuItem}
+              onPress={() => {
+                setFabMenuOpen(false);
+                setFocusTimerOpen(true);
+              }}
+            >
+              <Icon.timer size={18} color={theme.accent} />
+              <Text style={[styles.fabMenuText, { color: theme.text, fontFamily: FONT.sansSemi }]} numberOfLines={1}>
+                Start Focus
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -636,6 +735,24 @@ export default function App() {
     HankenGrotesk_500Medium,
     HankenGrotesk_600SemiBold,
     HankenGrotesk_700Bold,
+    Caveat_400Regular,
+    Caveat_700Bold,
+    Mali_400Regular,
+    Mali_500Medium,
+    Mali_600SemiBold,
+    Mali_700Bold,
+    Mali_400Regular_Italic,
+    Inter_300Light,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    PlayfairDisplay_400Regular,
+    PlayfairDisplay_500Medium,
+    PlayfairDisplay_400Regular_Italic,
+    SpaceMono_400Regular,
+    SpaceMono_700Bold,
+    SpaceMono_400Regular_Italic,
   });
 
   if (!fontsLoaded) return null;
@@ -662,7 +779,7 @@ const styles = StyleSheet.create({
   fabMenu: {
     borderRadius: 16,
     borderWidth: 2,
-    width: 150,
+    width: 185,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.15,

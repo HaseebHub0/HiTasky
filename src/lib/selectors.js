@@ -145,3 +145,37 @@ export function scheduledTasks(state) {
     })
     .sort(getSortCompare(state));
 }
+
+// Calculate the completion streak (consecutive days of completed tasks ending today or yesterday)
+export function calculateStreak(tasks) {
+  const completedDates = new Set(
+    tasks
+      .filter((t) => t.isCompleted && t.completedAt)
+      .map((t) => {
+        const d = new Date(t.completedAt);
+        return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      })
+  );
+
+  let streak = 0;
+  let checkDate = new Date();
+  const formatDate = (date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+
+  // If today has completion, count starting today
+  if (completedDates.has(formatDate(checkDate))) {
+    while (completedDates.has(formatDate(checkDate))) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+  } else {
+    // Check if yesterday was completed
+    checkDate.setDate(checkDate.getDate() - 1);
+    if (completedDates.has(formatDate(checkDate))) {
+      while (completedDates.has(formatDate(checkDate))) {
+        streak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+    }
+  }
+  return streak;
+}

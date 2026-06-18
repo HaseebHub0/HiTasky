@@ -99,6 +99,92 @@ export const FONT = {
   sansBold: 'HankenGrotesk_700Bold',
 };
 
+// Modifies the FONT dictionary in-place so all components pick up the new fonts on next render
+export function updateFontGlobals(style = 'editorial') {
+  if (style === 'modern') {
+    FONT.serifLight = 'HankenGrotesk_400Regular';
+    FONT.serif = 'HankenGrotesk_400Regular';
+    FONT.serifMedium = 'HankenGrotesk_500Medium';
+    FONT.serifItalic = 'HankenGrotesk_400Regular';
+    FONT.serifLightItalic = 'HankenGrotesk_400Regular';
+    FONT.sans = 'HankenGrotesk_400Regular';
+    FONT.sansMedium = 'HankenGrotesk_500Medium';
+    FONT.sansSemi = 'HankenGrotesk_600SemiBold';
+    FONT.sansBold = 'HankenGrotesk_700Bold';
+  } else if (style === 'classic') {
+    FONT.serifLight = 'Newsreader_300Light';
+    FONT.serif = 'Newsreader_400Regular';
+    FONT.serifMedium = 'Newsreader_500Medium';
+    FONT.serifItalic = 'Newsreader_400Regular_Italic';
+    FONT.serifLightItalic = 'Newsreader_300Light_Italic';
+    FONT.sans = 'Newsreader_400Regular';
+    FONT.sansMedium = 'Newsreader_500Medium';
+    FONT.sansSemi = 'Newsreader_600SemiBold';
+    FONT.sansBold = 'Newsreader_700Bold';
+  } else if (style === 'cursive') {
+    FONT.serifLight = 'Caveat_400Regular';
+    FONT.serif = 'Caveat_400Regular';
+    FONT.serifMedium = 'Caveat_700Bold';
+    FONT.serifItalic = 'Caveat_400Regular';
+    FONT.serifLightItalic = 'Caveat_400Regular';
+    FONT.sans = 'Caveat_400Regular';
+    FONT.sansMedium = 'Caveat_700Bold';
+    FONT.sansSemi = 'Caveat_700Bold';
+    FONT.sansBold = 'Caveat_700Bold';
+  } else if (style === 'cute') {
+    FONT.serifLight = 'Mali_400Regular';
+    FONT.serif = 'Mali_400Regular';
+    FONT.serifMedium = 'Mali_500Medium';
+    FONT.serifItalic = 'Mali_400Regular_Italic';
+    FONT.serifLightItalic = 'Mali_400Regular_Italic';
+    FONT.sans = 'Mali_400Regular';
+    FONT.sansMedium = 'Mali_500Medium';
+    FONT.sansSemi = 'Mali_600SemiBold';
+    FONT.sansBold = 'Mali_700Bold';
+  } else if (style === 'minimal') {
+    FONT.serifLight = 'Inter_300Light';
+    FONT.serif = 'Inter_400Regular';
+    FONT.serifMedium = 'Inter_500Medium';
+    FONT.serifItalic = 'Inter_400Regular';
+    FONT.serifLightItalic = 'Inter_300Light';
+    FONT.sans = 'Inter_400Regular';
+    FONT.sansMedium = 'Inter_500Medium';
+    FONT.sansSemi = 'Inter_600SemiBold';
+    FONT.sansBold = 'Inter_700Bold';
+  } else if (style === 'elegant') {
+    FONT.serifLight = 'PlayfairDisplay_400Regular';
+    FONT.serif = 'PlayfairDisplay_400Regular';
+    FONT.serifMedium = 'PlayfairDisplay_500Medium';
+    FONT.serifItalic = 'PlayfairDisplay_400Regular_Italic';
+    FONT.serifLightItalic = 'PlayfairDisplay_400Regular_Italic';
+    FONT.sans = 'Inter_400Regular';
+    FONT.sansMedium = 'Inter_500Medium';
+    FONT.sansSemi = 'Inter_600SemiBold';
+    FONT.sansBold = 'Inter_700Bold';
+  } else if (style === 'code') {
+    FONT.serifLight = 'SpaceMono_400Regular';
+    FONT.serif = 'SpaceMono_400Regular';
+    FONT.serifMedium = 'SpaceMono_700Bold';
+    FONT.serifItalic = 'SpaceMono_400Regular_Italic';
+    FONT.serifLightItalic = 'SpaceMono_400Regular_Italic';
+    FONT.sans = 'SpaceMono_400Regular';
+    FONT.sansMedium = 'SpaceMono_700Bold';
+    FONT.sansSemi = 'SpaceMono_700Bold';
+    FONT.sansBold = 'SpaceMono_700Bold';
+  } else {
+    // editorial (default mix)
+    FONT.serifLight = 'Newsreader_300Light';
+    FONT.serif = 'Newsreader_400Regular';
+    FONT.serifMedium = 'Newsreader_500Medium';
+    FONT.serifItalic = 'Newsreader_400Regular_Italic';
+    FONT.serifLightItalic = 'Newsreader_300Light_Italic';
+    FONT.sans = 'HankenGrotesk_400Regular';
+    FONT.sansMedium = 'HankenGrotesk_500Medium';
+    FONT.sansSemi = 'HankenGrotesk_600SemiBold';
+    FONT.sansBold = 'HankenGrotesk_700Bold';
+  }
+}
+
 // title font respecting the "serif titles" setting
 export function titleFont(sans, italic = false) {
   if (sans) return italic ? FONT.sansMedium : FONT.sansMedium;

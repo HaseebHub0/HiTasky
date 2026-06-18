@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TodayWidget } from './TodayWidget.js';
 import { todayTasks } from '../lib/selectors.js';
 import { headerDate } from '../lib/date.js';
+import { getPet } from '../lib/pets.js';
 
 const KEY = 'hitasky.v1';
 
@@ -20,6 +21,7 @@ const FALLBACK_DATA = {
   tasks: [],
   dateLabel: headerDate(),
   theme: 'dark',
+  pet: '🦊',
 };
 
 export async function loadWidgetData() {
@@ -32,14 +34,36 @@ export async function loadWidgetData() {
       return { ...FALLBACK_DATA, dateLabel: headerDate() };
     }
 
+    const themeStr = state.settings?.theme || 'dark';
+    const petId = state.settings?.pet || 'zen';
+    const accent = state.settings?.accent || null;
+    
+    // Default fallback emoji if pet logic fails
+    let petEmoji = '🐸';
+    try { petEmoji = getPet(petId)?.emoji || '🐸'; } catch(e) {}
+
+    let colors = { bg: '#18140F', surface: '#221D17', text: '#F3ECDF', muted: '#7C7264', accent: '#E58A4B' };
+    try {
+      const { makeTheme } = require('../theme.js');
+      const t = makeTheme(themeStr === 'light' ? 'light' : 'dark', accent, petId);
+      colors = {
+        bg: t.bg,
+        surface: t.surface,
+        text: t.text,
+        muted: t.text3,
+        accent: t.accent,
+      };
+    } catch (e) {
+      console.warn('[Widget Handler] makeTheme failed', e);
+    }
+
     return {
-      tasks: todayTasks(state).map((t) => t.title),
+      tasks: todayTasks(state).map((t) => ({ id: t.id, title: t.title })),
       dateLabel: headerDate(),
-      theme: state.settings?.theme || 'dark',
+      colors: colors,
+      pet: petEmoji,
     };
   } catch (e) {
-    // Storage read or JSON parse failed — return a valid empty widget
-    // so the widget never shows blank/broken state
     console.warn('[Widget Handler] loadWidgetData failed, using fallback:', e.message);
     return { ...FALLBACK_DATA, dateLabel: headerDate() };
   }
@@ -55,9 +79,49 @@ export async function widgetTaskHandler(props) {
       break;
     }
     case 'WIDGET_CLICK': {
-      // Re-render the widget with fresh data when tapped.
-      // The widget's clickAction="OPEN_APP" handles launching
-      // the app; here we just ensure the widget is up-to-date.
+      if (props.clickAction === 'CUSTOM' && props.clickActionData?.action === 'COMPLETE') {
+        try {
+          const taskId = props.clickActionData.id;
+          const raw = await AsyncStorage.getItem(KEY);
+          if (raw) {
+            const state = JSON.parse(raw);
+            if (state && Array.isArray(state.tasks)) {
+              state.tasks = state.tasks.map(t => 
+                t.id === taskId 
+                  ? { ...t, isCompleted: true, completedAt: new Date().toISOString() } 
+                  : t
+              );
+              
+              if (state.settings) {
+                const pad = (n) => String(n).padStart(2, '0');
+                const now = new Date();
+                const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+                const yesterday = (() => {
+                  const y = new Date(Date.now() - 86400000);
+                  return `${y.getFullYear()}-${pad(y.getMonth() + 1)}-${pad(y.getDate())}`;
+                })();
+
+                const currentStreak = state.settings.streak || 0;
+                const lastDate = state.settings.streakLastDate;
+
+                if (lastDate !== today) {
+                  let newStreak = 1;
+                  if (lastDate === yesterday) {
+                    newStreak = currentStreak + 1;
+                  }
+                  state.settings.streak = newStreak;
+                  state.settings.streakLastDate = today;
+                }
+              }
+
+              await AsyncStorage.setItem(KEY, JSON.stringify(state));
+            }
+          }
+        } catch(e) {
+          console.warn('[Widget Handler] Complete task failed', e);
+        }
+      }
+      
       const data = await loadWidgetData();
       props.renderWidget(<TodayWidget {...data} />);
       break;

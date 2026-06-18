@@ -21,10 +21,35 @@ export async function updateTodayWidget(state) {
   if (Platform.OS !== 'android' || !state) return;
 
   // Compute fresh widget data
+  const themeStr = state.settings?.theme || 'dark';
+  const petId = state.settings?.pet || 'zen';
+  const accent = state.settings?.accent || null;
+  
+  // We must import getPet dynamically or at the top. Let's do it inline to avoid circular deps if any, 
+  // though pets.js has no circular deps.
+  const { getPet } = require('../lib/pets.js');
+  const petEmoji = getPet(petId)?.emoji || '🐸';
+
+  let colors = { bg: '#18140F', surface: '#221D17', text: '#F3ECDF', muted: '#7C7264', accent: '#E58A4B' };
+  try {
+    const { makeTheme } = require('../theme.js');
+    const t = makeTheme(themeStr === 'light' ? 'light' : 'dark', accent, petId);
+    colors = {
+      bg: t.bg,
+      surface: t.surface,
+      text: t.text,
+      muted: t.text3,
+      accent: t.accent,
+    };
+  } catch (e) {
+    console.warn('[updateWidget] makeTheme failed', e);
+  }
+
   const data = {
-    tasks: todayTasks(state).map((t) => t.title),
+    tasks: todayTasks(state).map((t) => ({ id: t.id, title: t.title })),
     dateLabel: headerDate(),
-    theme: state.settings?.theme || 'dark',
+    colors: colors,
+    pet: petEmoji,
   };
 
   // Skip update if data is identical to last render (prevents flicker)

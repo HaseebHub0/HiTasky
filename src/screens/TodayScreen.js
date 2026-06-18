@@ -3,13 +3,13 @@
 // First card is the hero "Now"; the rest are "Next". Reorderable
 // via react-native-draggable-flatlist.
 // ============================================================
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import DraggableFlatList from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useStore } from '../lib/store.js';
 import { useAppTheme } from '../lib/useTheme.js';
-import { todayTasks, doneGroups, listName, scheduledTasks } from '../lib/selectors.js';
+import { todayTasks, doneGroups, listName, scheduledTasks, calculateStreak } from '../lib/selectors.js';
 import { headerDate } from '../lib/date.js';
 import { softFeedback } from '../lib/feedback.js';
 import { Wordmark } from '../components/Wordmark.js';
@@ -21,6 +21,8 @@ import { Pet, HeaderPet } from '../components/Pet.js';
 import { getPet } from '../lib/pets.js';
 import { Kicker, Display, H2, Meta, EmptyState } from '../components/ui.js';
 import { FONT } from '../theme.js';
+import { getGreeting, streakText } from '../lib/greeting.js';
+import { DailyReviewModal } from '../components/DailyReviewModal.js';
 
 function TodayHeader({ theme, settings, onOpenPets, onOpenSettings }) {
   return (
@@ -42,6 +44,18 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
   const [doneLimit, setDoneLimit] = React.useState(10);
   const [restLimit, setRestLimit] = React.useState(15);
   const [scheduledLimit, setScheduledLimit] = React.useState(15);
+  const [greeting, setGreeting] = useState('');
+  const [showReview, setShowReview] = useState(false);
+
+  const streak = state.settings?.streak || 0;
+
+  const isEvening = new Date().getHours() >= 18;
+  const showReviewBanner = isEvening && tasks.length > 0;
+
+  // Load greeting on mount and when tasks change
+  useEffect(() => {
+    setGreeting(getGreeting(tasks.length, done.length));
+  }, [tasks.length, done.length]);
 
   const complete = useCallback((task) => actions.toggleTask(task.id, true), []);
   const uncomplete = useCallback((task) => actions.toggleTask(task.id, false), []);
@@ -86,8 +100,17 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
           onOpenPets={onOpenPets}
           onOpenSettings={onOpenSettings}
         />
-        {/* Date subheader */}
-        <Kicker style={{ color: theme.accent, paddingHorizontal: 4, marginBottom: 12 }}>{headerDate()}</Kicker>
+        {/* Date + streak */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, marginBottom: 4 }}>
+          <Kicker style={{ color: theme.accent }}>{headerDate()}</Kicker>
+          {streakText(streak) && (
+            <Text style={{ fontFamily: FONT.sansMedium, fontSize: 12, color: theme.text3 }}>{streakText(streak)}</Text>
+          )}
+        </View>
+        {/* Greeting */}
+        {greeting ? (
+          <Text style={{ fontFamily: FONT.serifItalic || FONT.serif, fontSize: 14, color: theme.text3, paddingHorizontal: 4, marginBottom: 14 }}>{greeting}</Text>
+        ) : null}
         <EmptyState
           title="Nothing pressing."
           subtitle="You've cleared the page. Enjoy the white space for a while."
@@ -115,8 +138,27 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
           onOpenSettings={onOpenSettings}
         />
 
-        {/* Date subheader */}
-        <Kicker style={{ color: theme.accent, paddingHorizontal: 4, marginBottom: 12 }}>{headerDate()}</Kicker>
+        {/* Date + streak */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, marginBottom: 4 }}>
+          <Kicker style={{ color: theme.accent }}>{headerDate()}</Kicker>
+          {streakText(streak) && (
+            <Text style={{ fontFamily: FONT.sansMedium, fontSize: 12, color: theme.text3 }}>{streakText(streak)}</Text>
+          )}
+        </View>
+        {/* Greeting */}
+        {greeting ? (
+          <Text style={{ fontFamily: FONT.serifItalic || FONT.serif, fontSize: 14, color: theme.text3, paddingHorizontal: 4, marginBottom: 14 }}>{greeting}</Text>
+        ) : null}
+
+        {showReviewBanner && (
+          <Pressable style={[s.reviewBanner, { backgroundColor: theme.text }]} onPress={() => setShowReview(true)}>
+            <Text style={{ fontSize: 22 }}>🌙</Text>
+            <View style={{ marginLeft: 16, flex: 1 }}>
+              <Text style={[s.reviewTitle, { color: theme.bg }]}>Evening Review</Text>
+              <Text style={[s.reviewSub, { color: theme.bg, opacity: 0.8 }]}>Wind down and plan tomorrow</Text>
+            </View>
+          </Pressable>
+        )}
 
         {/* Hero card */}
         {hero && (
@@ -224,8 +266,14 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
           </>
         )}
 
-        <View style={{ height: 140 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
+
+      <DailyReviewModal 
+        open={showReview} 
+        onClose={() => setShowReview(false)} 
+        tasks={tasks} 
+      />
     </GestureHandlerRootView>
   );
 }
@@ -314,9 +362,29 @@ function makeStyles(t) {
       borderColor: t.hairline,
     },
     loadMoreText: {
-      fontFamily: FONT.sansSemi,
-      fontSize: 12.5,
+      fontFamily: FONT.sansMedium,
+      fontSize: 13,
       color: t.text3,
+    },
+    reviewBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      borderRadius: 16,
+      marginBottom: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    reviewTitle: {
+      fontFamily: FONT.serifMedium,
+      fontSize: 18,
+    },
+    reviewSub: {
+      fontFamily: FONT.sans,
+      fontSize: 13,
     },
   });
 }
