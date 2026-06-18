@@ -1,0 +1,46 @@
+name: OTA Update (EAS Update)
+
+# Fires when you push JS / asset / config changes to main.
+# This pushes an over-the-air update — installed apps pick it up on next
+# launch, NO new Play Store build needed.
+#
+# ⚠️ OTA only works for JS + assets. If you change NATIVE things
+# (new native dependency, app.json android/ios native fields, a new
+# Expo config plugin, an Expo SDK upgrade, or you bump the version),
+# OTA is NOT enough — run the "Production Build (AAB)" workflow instead.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'App.js'
+      - 'index.js'
+      - 'assets/**'
+      - 'package.json'
+  workflow_dispatch: {}   # also allow manual run from the Actions tab
+
+jobs:
+  ota-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish OTA update to production
+        run: eas update --branch production --message "${{ github.event.head_commit.message || 'manual update' }}" --non-interactive

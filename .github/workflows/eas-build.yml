@@ -1,0 +1,48 @@
+name: Production Build (AAB)
+
+# Builds a NEW Android App Bundle (.aab) for the Play Store.
+# Run this only when you change NATIVE things (native deps, app.json
+# native config, new plugins, Expo SDK upgrade, or a version bump) —
+# OR whenever you want a fresh store binary.
+#
+# It is MANUAL on purpose (native builds cost EAS build minutes).
+# Set submit: true to also auto-upload the AAB to the Play Console
+# (requires the Google service-account key configured in eas.json /
+# EAS credentials — see CI-CD-SETUP.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      submit:
+        description: 'Also submit the AAB to Google Play?'
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production AAB
+        run: eas build --platform android --profile production --non-interactive --no-wait
+
+      - name: Submit to Google Play (optional)
+        if: ${{ inputs.submit }}
+        run: eas submit --platform android --profile production --latest --non-interactive
