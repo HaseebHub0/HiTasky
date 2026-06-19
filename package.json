@@ -21,7 +21,6 @@
     "chrono-node": "^2.9.1",
     "expo": "^54.0.0",
     "expo-application": "~7.0.8",
-    "expo-av": "~16.0.8",
     "expo-build-properties": "~1.0.10",
     "expo-crypto": "~15.0.9",
     "expo-document-picker": "~14.0.8",
