@@ -81,7 +81,7 @@ function makeStyles(t) {
       borderWidth: 2,
       borderColor: t.surface2,
       backgroundColor: t.surface,
-      marginTop: 16,
+      marginTop: 26,
       marginBottom: 20,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 6 },
@@ -90,6 +90,7 @@ function makeStyles(t) {
       elevation: 5,
     },
     brandRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+
     headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     actionBtn: {
       width: 32,

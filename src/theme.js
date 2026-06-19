@@ -88,20 +88,30 @@ export function softOf(hex, alpha = 0.16) {
 
 // ---- type ----
 export const FONT = {
-  serifLight: 'Newsreader_300Light',
-  serif: 'Newsreader_400Regular',
-  serifMedium: 'Newsreader_500Medium',
-  serifItalic: 'Newsreader_400Regular_Italic',
-  serifLightItalic: 'Newsreader_300Light_Italic',
-  sans: 'HankenGrotesk_400Regular',
-  sansMedium: 'HankenGrotesk_500Medium',
-  sansSemi: 'HankenGrotesk_600SemiBold',
-  sansBold: 'HankenGrotesk_700Bold',
+  serifLight: 'Poppins_300Light',
+  serif: 'Poppins_400Regular',
+  serifMedium: 'Poppins_500Medium',
+  serifItalic: 'Poppins_400Regular_Italic',
+  serifLightItalic: 'Poppins_300Light_Italic',
+  sans: 'Poppins_400Regular',
+  sansMedium: 'Poppins_500Medium',
+  sansSemi: 'Poppins_600SemiBold',
+  sansBold: 'Poppins_700Bold',
 };
 
 // Modifies the FONT dictionary in-place so all components pick up the new fonts on next render
-export function updateFontGlobals(style = 'editorial') {
-  if (style === 'modern') {
+export function updateFontGlobals(style = 'poppins') {
+  if (style === 'poppins') {
+    FONT.serifLight = 'Poppins_300Light';
+    FONT.serif = 'Poppins_400Regular';
+    FONT.serifMedium = 'Poppins_500Medium';
+    FONT.serifItalic = 'Poppins_400Regular_Italic';
+    FONT.serifLightItalic = 'Poppins_300Light_Italic';
+    FONT.sans = 'Poppins_400Regular';
+    FONT.sansMedium = 'Poppins_500Medium';
+    FONT.sansSemi = 'Poppins_600SemiBold';
+    FONT.sansBold = 'Poppins_700Bold';
+  } else if (style === 'modern') {
     FONT.serifLight = 'HankenGrotesk_400Regular';
     FONT.serif = 'HankenGrotesk_400Regular';
     FONT.serifMedium = 'HankenGrotesk_500Medium';
@@ -172,16 +182,16 @@ export function updateFontGlobals(style = 'editorial') {
     FONT.sansSemi = 'SpaceMono_700Bold';
     FONT.sansBold = 'SpaceMono_700Bold';
   } else {
-    // editorial (default mix)
-    FONT.serifLight = 'Newsreader_300Light';
-    FONT.serif = 'Newsreader_400Regular';
-    FONT.serifMedium = 'Newsreader_500Medium';
-    FONT.serifItalic = 'Newsreader_400Regular_Italic';
-    FONT.serifLightItalic = 'Newsreader_300Light_Italic';
-    FONT.sans = 'HankenGrotesk_400Regular';
-    FONT.sansMedium = 'HankenGrotesk_500Medium';
-    FONT.sansSemi = 'HankenGrotesk_600SemiBold';
-    FONT.sansBold = 'HankenGrotesk_700Bold';
+    // Fallback default: Poppins
+    FONT.serifLight = 'Poppins_300Light';
+    FONT.serif = 'Poppins_400Regular';
+    FONT.serifMedium = 'Poppins_500Medium';
+    FONT.serifItalic = 'Poppins_400Regular_Italic';
+    FONT.serifLightItalic = 'Poppins_300Light_Italic';
+    FONT.sans = 'Poppins_400Regular';
+    FONT.sansMedium = 'Poppins_500Medium';
+    FONT.sansSemi = 'Poppins_600SemiBold';
+    FONT.sansBold = 'Poppins_700Bold';
   }
 }
 

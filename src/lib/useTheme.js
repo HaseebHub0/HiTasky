@@ -7,10 +7,10 @@ export function useAppTheme() {
   const { state } = useStore();
   
   return useMemo(() => {
-    updateFontGlobals(state.settings.fontStyle || 'editorial');
+    updateFontGlobals(state.settings.fontStyle || 'poppins');
     return {
       ...makeTheme(state.settings.theme, state.settings.accent, state.settings.pet),
-      fontStyle: state.settings.fontStyle || 'editorial'
+      fontStyle: state.settings.fontStyle || 'poppins'
     };
   }, [state.settings.theme, state.settings.accent, state.settings.pet, state.settings.fontStyle]);
 }

@@ -5,10 +5,10 @@ import {
   ScrollView,
   Text,
   Pressable,
-  PanResponder,
   Animated,
   LayoutAnimation,
 } from 'react-native';
+import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../lib/useTheme.js';
 import { useStore } from '../lib/store.js';
@@ -85,27 +85,10 @@ const getDaysInMonthGrid = (year, month) => {
 
 
 
-// Draggable wrapper using the dragHandlers prop of TaskCard
-function DraggableTaskItem({ task, theme, settings, listName, onComplete, onUncomplete, onOpen, onDragStart, onDragMove, onDragEnd, isSelected, draggable = false }) {
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e, gestureState) => {
-        onDragStart(task, gestureState.y0);
-      },
-      onPanResponderMove: (e, gestureState) => {
-        onDragMove(gestureState.dx, gestureState.dy, gestureState.moveY);
-      },
-      onPanResponderRelease: (e, gestureState) => {
-        onDragEnd(gestureState.moveY);
-      },
-      onPanResponderTerminate: () => {
-        onDragEnd(null);
-      }
-    })
-  ).current;
-
+// Simple non-draggable task item (used for week/month/database/unscheduled)
+const SimpleTaskItem = React.memo(function SimpleTaskItem({
+  task, theme, settings, listName, onComplete, onUncomplete, onOpen, isSelected
+}) {
   return (
     <View style={isSelected && { borderColor: theme.accent, borderWidth: 1.5, borderRadius: theme.radius }}>
       <TaskCard
@@ -116,11 +99,72 @@ function DraggableTaskItem({ task, theme, settings, listName, onComplete, onUnco
         onComplete={onComplete}
         onUncomplete={onUncomplete}
         onOpen={onOpen}
-        dragHandlers={draggable ? panResponder.panHandlers : undefined}
       />
     </View>
   );
-}
+});
+
+// Draggable task item for Daily view — uses native PanGestureHandler for zero-lag
+const DraggableTaskItem = React.memo(function DraggableTaskItem({
+  task, theme, settings, listName, onComplete, onUncomplete, onOpen,
+  onDragStart, onDragMove, onDragEnd, isSelected, draggable = false
+}) {
+  // For non-draggable contexts, render simple item
+  if (!draggable) {
+    return (
+      <SimpleTaskItem
+        task={task} theme={theme} settings={settings} listName={listName}
+        onComplete={onComplete} onUncomplete={onUncomplete} onOpen={onOpen}
+        isSelected={isSelected}
+      />
+    );
+  }
+
+  // Stable callback refs so the gesture handler closure doesn't go stale
+  const callbacks = useRef({ onDragStart, onDragMove, onDragEnd });
+  callbacks.current = { onDragStart, onDragMove, onDragEnd };
+  const isDragging = useRef(false);
+
+  const onGestureEvent = useCallback((event) => {
+    const { translationX, translationY, absoluteY } = event.nativeEvent;
+    callbacks.current.onDragMove(translationX, translationY, absoluteY);
+  }, []);
+
+  const onHandlerStateChange = useCallback((event) => {
+    const { state: gestureState, absoluteY } = event.nativeEvent;
+    if (gestureState === State.BEGAN || gestureState === State.ACTIVE) {
+      if (!isDragging.current) {
+        isDragging.current = true;
+        callbacks.current.onDragStart(task, absoluteY);
+      }
+    } else if (gestureState === State.END || gestureState === State.CANCELLED || gestureState === State.FAILED) {
+      isDragging.current = false;
+      callbacks.current.onDragEnd(gestureState === State.END ? absoluteY : null);
+    }
+  }, [task]);
+
+  return (
+    <PanGestureHandler
+      onGestureEvent={onGestureEvent}
+      onHandlerStateChange={onHandlerStateChange}
+      activeOffsetY={[-8, 8]}
+      failOffsetX={[-20, 20]}
+    >
+      <View style={isSelected && { borderColor: theme.accent, borderWidth: 1.5, borderRadius: theme.radius }}>
+        <TaskCard
+          task={task}
+          theme={theme}
+          settings={settings}
+          listName={listName}
+          onComplete={onComplete}
+          onUncomplete={onUncomplete}
+          onOpen={onOpen}
+          dragHandlers={{}} // just renders the grip icon
+        />
+      </View>
+    </PanGestureHandler>
+  );
+});
 
 export function ScheduleScreen({ onOpenTask, onAddTask, onOpenPets, onOpenSettings }) {
   const theme = useAppTheme();
@@ -281,21 +325,58 @@ export function ScheduleScreen({ onOpenTask, onAddTask, onOpenPets, onOpenSettin
   const dragRotate = useRef(new Animated.Value(0)).current;
   const timelineRef = useRef(null);
   const [timelineLayout, setTimelineLayout] = useState({ y: 0, height: 0 });
-  const [timelineScrollY, setTimelineScrollY] = useState(0);
+  const timelineScrollYRef = useRef(0);
+
+  // Track layout Y coordinate of timelineContainer inside the ScrollView
+  const timelineContainerScrollY0Ref = useRef(0);
+  const onTimelineContainerLayout = useCallback((event) => {
+    timelineContainerScrollY0Ref.current = event.nativeEvent.layout.y;
+  }, []);
+
+  // Track coordinates of each hour row relative to timelineContainer
+  const rowLayouts = useRef({});
+  const hoveredHourRef = useRef(null);
+  const draggingTaskRef = useRef(null);
+  const timelineLayoutRef = useRef({ y: 0, height: 0 });
+
+  // Throttle hover calculation to avoid excessive re-renders
+  const lastHoverCalcTime = useRef(0);
+
+  const findHourFromY = useCallback((relativeY) => {
+    const layouts = rowLayouts.current;
+    const hours = Object.keys(layouts).map(Number).sort((a, b) => a - b);
+    if (hours.length === 0) return null;
+
+    for (let i = 0; i < hours.length; i++) {
+      const hr = hours[i];
+      const top = layouts[hr];
+      const nextHr = hours[i + 1];
+      const bottom = nextHr !== undefined ? layouts[nextHr] : top + 120;
+
+      if (relativeY >= top && relativeY < bottom) {
+        return hr;
+      }
+    }
+    return null;
+  }, []);
 
   const onTimelineLayout = () => {
     timelineRef.current?.measure((x, y, width, height, pageX, pageY) => {
-      setTimelineLayout({ y: pageY, height });
+      const layout = { y: pageY, height };
+      setTimelineLayout(layout);
+      timelineLayoutRef.current = layout;
     });
   };
 
-  const handleTimelineScroll = (event) => {
-    setTimelineScrollY(event.nativeEvent.contentOffset.y);
-  };
+  const handleTimelineScroll = useCallback((event) => {
+    timelineScrollYRef.current = event.nativeEvent.contentOffset.y;
+  }, []);
 
-  const handleDragStart = (task, pageY) => {
+  const handleDragStart = useCallback((task, pageY) => {
+    hoveredHourRef.current = null;
+    draggingTaskRef.current = task;
     setDraggingTask(task);
-    setDragStartTop(pageY - 45); // assuming card height is 90
+    setDragStartTop(pageY - 45);
     dragXY.setValue({ x: 0, y: 0 });
     dragScale.setValue(1);
     dragRotate.setValue(0);
@@ -303,43 +384,62 @@ export function ScheduleScreen({ onOpenTask, onAddTask, onOpenPets, onOpenSettin
       Animated.spring(dragScale, { toValue: 1.06, friction: 7, tension: 70, useNativeDriver: true }),
       Animated.spring(dragRotate, { toValue: 1, friction: 7, tension: 70, useNativeDriver: true })
     ]).start();
-  };
+  }, [dragScale, dragRotate, dragXY]);
 
-  const handleDragMove = (dx, dy, moveY) => {
+  const handleDragMove = useCallback((dx, dy, moveY) => {
+    // Native-driven position update — no state involved
     dragXY.setValue({ x: dx, y: dy });
-    if (moveY && timelineLayout.y > 0) {
-      const localY = moveY - timelineLayout.y + timelineScrollY;
-      const hourIndex = Math.floor(localY / 100);
-      const hour = 7 + hourIndex;
-      if (hour >= 7 && hour <= 22) {
-        setHoveredHour(hour);
-      } else {
+
+    // Throttle hover calculation to max 20fps (50ms) to reduce re-renders
+    const now = Date.now();
+    if (now - lastHoverCalcTime.current < 50) return;
+    lastHoverCalcTime.current = now;
+
+    const layout = timelineLayoutRef.current;
+    if (moveY && layout.y > 0) {
+      const containerPageY = layout.y + timelineContainerScrollY0Ref.current - timelineScrollYRef.current;
+      const relativeY = moveY - containerPageY;
+      const hour = findHourFromY(relativeY);
+
+      if (hour !== null) {
+        if (hoveredHourRef.current !== hour) {
+          hoveredHourRef.current = hour;
+          setHoveredHour(hour);
+        }
+      } else if (hoveredHourRef.current !== null) {
+        hoveredHourRef.current = null;
         setHoveredHour(null);
       }
-    } else {
+    } else if (hoveredHourRef.current !== null) {
+      hoveredHourRef.current = null;
       setHoveredHour(null);
     }
-  };
+  }, [dragXY, findHourFromY]);
 
-  const handleDragEnd = (moveY) => {
+  const handleDragEnd = useCallback((moveY) => {
     Animated.parallel([
       Animated.spring(dragScale, { toValue: 1, friction: 8, useNativeDriver: true }),
       Animated.spring(dragRotate, { toValue: 0, friction: 8, useNativeDriver: true })
     ]).start();
 
-    if (moveY !== null && draggingTask && timelineLayout.y > 0) {
-      const localY = moveY - timelineLayout.y + timelineScrollY;
-      const hourIndex = Math.floor(localY / 100);
-      const hour = 7 + hourIndex;
-      if (hour >= 7 && hour <= 22) {
+    const task = draggingTaskRef.current;
+    const layout = timelineLayoutRef.current;
+    if (moveY !== null && task && layout.y > 0) {
+      const containerPageY = layout.y + timelineContainerScrollY0Ref.current - timelineScrollYRef.current;
+      const relativeY = moveY - containerPageY;
+      const hour = findHourFromY(relativeY);
+
+      if (hour !== null) {
         const [y, m, d] = selectedDate.split('-').map(Number);
         const newDate = new Date(y, m - 1, d, hour, 0, 0, 0);
-        actions.updateTask(draggingTask.id, { dueAt: newDate.toISOString(), startAt: null });
+        actions.updateTask(task.id, { dueAt: newDate.toISOString(), startAt: null });
       }
     }
+    draggingTaskRef.current = null;
     setDraggingTask(null);
     setHoveredHour(null);
-  };
+    hoveredHourRef.current = null;
+  }, [dragScale, dragRotate, findHourFromY, selectedDate, actions]);
 
   // Week Days Calculation (Weekly view)
   const weekDays = useMemo(() => {
@@ -363,15 +463,27 @@ export function ScheduleScreen({ onOpenTask, onAddTask, onOpenPets, onOpenSettin
     return days;
   }, [selectedDate]);
 
-  // Helper to render Day timeline tasks
-  const getTasksForHour = (hour) => {
-    return selectedTasks.filter(t => {
+  // Group daily tasks by hour once using useMemo to avoid filtering selection array in loop
+  const hourlyTasksMap = useMemo(() => {
+    const map = {};
+    selectedTasks.forEach(t => {
+      if (!t.dueAt) return;
       const d = new Date(t.dueAt);
       const isUtcMidnight = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
       const isLocalMidnight = d.getHours() === 0 && d.getMinutes() === 0;
-      return !(isUtcMidnight || isLocalMidnight) && d.getHours() === hour;
+      if (!(isUtcMidnight || isLocalMidnight)) {
+        const hr = d.getHours();
+        if (!map[hr]) map[hr] = [];
+        map[hr].push(t);
+      }
     });
-  };
+    return map;
+  }, [selectedTasks]);
+
+  // Helper to render Day timeline tasks
+  const getTasksForHour = useCallback((hour) => {
+    return hourlyTasksMap[hour] || [];
+  }, [hourlyTasksMap]);
 
   const allDayTasks = useMemo(() => {
     return selectedTasks.filter(t => {
@@ -423,30 +535,7 @@ export function ScheduleScreen({ onOpenTask, onAddTask, onOpenPets, onOpenSettin
           onOpenSettings={onOpenSettings}
         />
         
-        {/* Performance Test Mock Data Injection Button */}
-        <Pressable
-          onPress={() => {
-            actions.injectMockData();
-          }}
-          style={({ pressed }) => [
-            {
-              paddingVertical: 10,
-              paddingHorizontal: 16,
-              backgroundColor: theme.accentSoft,
-              borderRadius: 14,
-              borderWidth: 1.5,
-              borderColor: theme.accent,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: 20,
-              opacity: pressed ? 0.8 : 1,
-            }
-          ]}
-        >
-          <Text style={{ color: theme.accent, fontSize: 11.5, fontFamily: FONT.sansSemi, letterSpacing: 1.2 }}>
-            ⚡ GENERATE PERFORMANCE MOCK DATA
-          </Text>
-        </Pressable>
+
 
         {viewMode !== 'timeline' && (
           <View style={s.topDateHeader}>
@@ -585,7 +674,10 @@ export function ScheduleScreen({ onOpenTask, onAddTask, onOpenPets, onOpenSettin
 
         {/* 3. Daily View (Hourly timeline) */}
         {viewMode === 'day' && (
-          <View style={s.timelineContainer}>
+          <View 
+            style={s.timelineContainer}
+            onLayout={onTimelineContainerLayout}
+          >
             {/* Anytime/All-Day section */}
             {allDayTasks.length > 0 && (
               <View style={s.allDayContainer}>
@@ -620,7 +712,13 @@ export function ScheduleScreen({ onOpenTask, onAddTask, onOpenPets, onOpenSettin
               const isPastDate = selectedDate < todayStr;
               
               return (
-                <View key={hour} style={s.timelineRow}>
+                <View 
+                  key={hour} 
+                  style={s.timelineRow}
+                  onLayout={(event) => {
+                    rowLayouts.current[hour] = event.nativeEvent.layout.y;
+                  }}
+                >
                   <View style={s.timelineHour}>
                     <Text style={s.timelineHourText}>
                       {hour > 12 ? `${hour - 12} PM` : hour === 12 ? '12 PM' : `${hour} AM`}
@@ -725,7 +823,7 @@ export function ScheduleScreen({ onOpenTask, onAddTask, onOpenPets, onOpenSettin
 
 
 
-        {/* List of Tasks for Selected Date (for Day, Week, and Month views, but not Timeline view as tasks are rendered inline) */}
+        {/* List of Tasks for Selected Date (for Week and Month views) */}
         {viewMode !== 'timeline' && viewMode !== 'day' && (
           selectedTasks.length === 0 ? (
             <EmptyState
@@ -737,7 +835,7 @@ export function ScheduleScreen({ onOpenTask, onAddTask, onOpenPets, onOpenSettin
             />
           ) : (
             selectedTasks.map(t => (
-              <DraggableTaskItem
+              <SimpleTaskItem
                 key={t.id}
                 task={t}
                 theme={theme}
@@ -746,9 +844,6 @@ export function ScheduleScreen({ onOpenTask, onAddTask, onOpenPets, onOpenSettin
                 onComplete={complete}
                 onUncomplete={uncomplete}
                 onOpen={onOpenTask}
-                onDragStart={handleDragStart}
-                onDragMove={handleDragMove}
-                onDragEnd={handleDragEnd}
               />
             ))
           )
@@ -760,7 +855,7 @@ export function ScheduleScreen({ onOpenTask, onAddTask, onOpenPets, onOpenSettin
             <Text style={s.poolTitle}>Unscheduled Tasks</Text>
             <View style={s.poolContainer}>
               {unscheduledTasks.map(t => (
-                <DraggableTaskItem
+                <SimpleTaskItem
                   key={t.id}
                   task={t}
                   theme={theme}
@@ -769,9 +864,6 @@ export function ScheduleScreen({ onOpenTask, onAddTask, onOpenPets, onOpenSettin
                   onComplete={complete}
                   onUncomplete={uncomplete}
                   onOpen={() => setSelectedTaskToSchedule(selectedTaskToSchedule?.id === t.id ? null : t)}
-                  onDragStart={handleDragStart}
-                  onDragMove={handleDragMove}
-                  onDragEnd={handleDragEnd}
                   isSelected={selectedTaskToSchedule?.id === t.id}
                 />
               ))}
@@ -916,6 +1008,7 @@ function makeStyles(t) {
     timelineHourText: {
       fontFamily: FONT.sansMedium,
       fontSize: 11.5,
+      color: t.text3,
     },
     timelineSlot: {
       flex: 1,

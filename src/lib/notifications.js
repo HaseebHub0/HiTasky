@@ -25,6 +25,35 @@ Notifications.setNotificationHandler({
   }),
 });
 
+export const REMINDER_CATEGORY = 'reminder_actions';
+
+/**
+ * Register notification actions category.
+ */
+export async function registerNotificationCategories() {
+  if (Platform.OS === 'web') return;
+  try {
+    await Notifications.setNotificationCategoryAsync(REMINDER_CATEGORY, [
+      {
+        identifier: 'complete_action',
+        buttonTitle: '✅ Complete Task',
+        options: {
+          opensAppToForeground: false,
+        },
+      },
+      {
+        identifier: 'snooze_action',
+        buttonTitle: '⏰ Snooze (1 hr)',
+        options: {
+          opensAppToForeground: false,
+        },
+      },
+    ]);
+  } catch (e) {
+    console.warn('[Notifications] Failed to set notification category:', e.message);
+  }
+}
+
 /**
  * Request notification permissions. Must be called before scheduling.
  * Returns true if permission is granted.
@@ -84,6 +113,7 @@ export async function scheduleReminder(task) {
         body: task.title,
         data: { taskId: task.id },
         sound: true,
+        categoryIdentifier: REMINDER_CATEGORY,
       },
       trigger: {
         // DATE trigger — fires at the exact specified time.
@@ -108,6 +138,7 @@ export async function scheduleReminder(task) {
           body: task.title,
           data: { taskId: task.id },
           sound: true,
+          categoryIdentifier: REMINDER_CATEGORY,
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -185,6 +216,7 @@ export async function rescheduleAllReminders(tasks) {
           body: task.title,
           data: { taskId: task.id },
           sound: true,
+          categoryIdentifier: REMINDER_CATEGORY,
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -285,4 +317,38 @@ export async function scheduleMorningDigest(tasks) {
   } catch (e) {
     console.warn('[Notifications] Failed to schedule morning digest:', e.message);
   }
+}
+
+/**
+ * Listen to rich notification action taps (Complete / Snooze).
+ */
+export function registerNotificationResponseListener(actions, showToast) {
+  if (Platform.OS === 'web') return () => {};
+
+  const subscription = Notifications.addNotificationResponseReceivedListener(async (response) => {
+    const actionId = response.actionIdentifier;
+    const taskId = response.notification.request.content.data?.taskId;
+
+    if (!taskId) return;
+
+    if (actionId === 'complete_action') {
+      try {
+        actions.toggleTask(taskId, true);
+        if (showToast) showToast('Task completed!');
+      } catch (e) {
+        console.warn('[Notifications Response] Complete action failed:', e);
+      }
+    } else if (actionId === 'snooze_action') {
+      try {
+        const now = new Date();
+        const snoozeTime = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour later
+        actions.updateTask(taskId, { reminderAt: snoozeTime.toISOString() });
+        if (showToast) showToast('Snoozed for 1 hour!');
+      } catch (e) {
+        console.warn('[Notifications Response] Snooze action failed:', e);
+      }
+    }
+  });
+
+  return () => subscription.remove();
 }

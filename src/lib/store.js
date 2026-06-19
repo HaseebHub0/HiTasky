@@ -57,7 +57,7 @@ function seed() {
       purchasedAt: null,
       accent: null,
       pet: 'zen',
-      fontStyle: 'editorial',
+      fontStyle: 'poppins',
       sortBy: 'smart',
       streak: 0,
       streakLastDate: null,
@@ -113,6 +113,13 @@ function validateState(state) {
 
     return patched;
   });
+
+  // Filter out any generated performance mock tasks
+  const originalCount = tasks.length;
+  tasks = tasks.filter((t) => !t.title.includes('(Mock'));
+  if (tasks.length !== originalCount) {
+    modified = true;
+  }
 
   // Normalize sortOrder — re-index to remove gaps
   const active = tasks.filter((t) => !t.isCompleted).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -406,122 +413,7 @@ function reducer(state, action) {
     case 'RESET':
       return seed();
 
-    case 'INJECT_MOCK_DATA': {
-      const mockTasks = [];
-      const now = new Date();
-      const nowIso = () => new Date().toISOString();
-      
-      // Seed lists if empty
-      let lists = [...state.lists];
-      if (lists.length === 0) {
-        lists = [
-          { id: uid('l'), name: 'Work 📁', accent: ACCENTS[0], sortOrder: 0, createdAt: nowIso() },
-          { id: uid('l'), name: 'Personal 🏠', accent: ACCENTS[1], sortOrder: 1, createdAt: nowIso() },
-          { id: uid('l'), name: 'Fitness ⚡', accent: ACCENTS[2], sortOrder: 2, createdAt: nowIso() },
-        ];
-      }
-      
-      const getRandomListId = () => {
-        const rand = Math.random();
-        if (rand < 0.2) return null; // Inbox
-        return lists[Math.floor(Math.random() * lists.length)].id;
-      };
 
-      // 1. Generate 50 completed tasks from 2024 to now
-      const start2024 = new Date(2024, 0, 1).getTime();
-      const endNow = now.getTime();
-      const priorities = ['low', 'medium', 'high'];
-      
-      const taskTitlesCompleted = [
-        "Review project requirements", "Send weekly newsletter", "Prepare presentation deck",
-        "Team standup meeting", "Refactor authentication utility", "Update dependencies",
-        "Write unit tests for checkout", "Fix styling in profile screen", "Database backup",
-        "Write documentation", "Review pull requests", "Client onboarding call",
-        "Design landing page mockup", "Configure CI/CD pipelines", "Optimize image assets",
-        "Plan next sprint", "Conduct user interviews", "Bug triage session",
-        "Write API endpoint tests", "Deploy staging release", "Review analytics dashboard",
-        "Monthly budget planning", "Gym workout session", "Car service appointment",
-        "Read tech blog posts", "Update onboarding slides", "Clean coding workspace",
-        "Pay hosting invoice", "Backup local projects", "Setup environment config",
-        "Draft marketing copy", "Schedule team one-on-ones", "Renew SSL certificate",
-        "Review security logs", "Audit user feedback", "Organize asset folder",
-        "Brainstorm feature ideas", "Update terms of service", "Answer support tickets",
-        "Clean inbox", "Fix keyboard scroll issue", "Format code guidelines",
-        "Buy premium domain", "Research competitors", "Submit tax documents",
-        "Upgrade Node.js version", "Write release notes", "Check server health logs",
-        "Optimize SQL queries", "Coffee chat with product manager"
-      ];
-
-      for (let i = 0; i < 50; i++) {
-        const randTime = start2024 + Math.random() * (endNow - start2024);
-        const taskDate = new Date(randTime);
-        const iso = taskDate.toISOString();
-        
-        mockTasks.push({
-          id: uid('t'),
-          title: taskTitlesCompleted[i % taskTitlesCompleted.length] + ` (Mock #${i+1})`,
-          note: `Auto-generated completed task for testing performance.`,
-          listId: getRandomListId(),
-          dueAt: iso,
-          startAt: null,
-          reminderAt: null,
-          recurring: null,
-          priority: priorities[Math.floor(Math.random() * priorities.length)],
-          isCompleted: true,
-          completedAt: iso,
-          createdAt: new Date(randTime - 86400000).toISOString(),
-          sortOrder: i,
-        });
-      }
-
-      // 2. Generate 20 active scheduled tasks
-      const taskTitlesActive = [
-        "Develop dark mode toggles", "Write performance benchmarking", "Review database schema",
-        "Update profile picture settings", "Fix search button padding", "Plan marketing campaign",
-        "Test push notifications", "Clean up temporary logs", "Setup Sentry logging",
-        "Design dashboard navigation", "Draft product roadmap", "Refactor state selectors",
-        "Polish calendar styling", "Audit accessibility features", "Update user profile layout",
-        "Check email marketing logs", "Research native widgets", "Write API contracts",
-        "Optimize bundle file sizes", "Finalize release candidates"
-      ];
-
-      for (let i = 0; i < 20; i++) {
-        // Random offset: from -1 day (overdue) to +30 days (future)
-        const dayOffset = Math.floor(Math.random() * 32) - 1; 
-        const randTime = endNow + dayOffset * 24 * 60 * 60 * 1000;
-        const taskDate = new Date(randTime);
-        
-        const hasHour = Math.random() > 0.3;
-        if (hasHour) {
-          taskDate.setHours(7 + Math.floor(Math.random() * 15), 0, 0, 0); 
-        } else {
-          taskDate.setHours(0, 0, 0, 0); 
-        }
-        
-        const iso = taskDate.toISOString();
-        mockTasks.push({
-          id: uid('t'),
-          title: taskTitlesActive[i % taskTitlesActive.length] + ` (Mock Scheduled #${i+1})`,
-          note: `Auto-generated active scheduled task for testing scheduler performance.`,
-          listId: getRandomListId(),
-          dueAt: iso,
-          startAt: null,
-          reminderAt: hasHour ? iso : null,
-          recurring: null,
-          priority: priorities[Math.floor(Math.random() * priorities.length)],
-          isCompleted: false,
-          completedAt: null,
-          createdAt: nowIso(),
-          sortOrder: 1000 + i,
-        });
-      }
-
-      return {
-        ...state,
-        lists,
-        tasks: [...mockTasks, ...state.tasks]
-      };
-    }
 
     default:
       return state;
@@ -880,10 +772,6 @@ function makeActions(dispatch) {
     reset: () => {
       triggerLayoutAnimation();
       dispatch({ type: 'RESET' });
-    },
-    injectMockData: () => {
-      triggerLayoutAnimation();
-      dispatch({ type: 'INJECT_MOCK_DATA' });
     },
   };
 }

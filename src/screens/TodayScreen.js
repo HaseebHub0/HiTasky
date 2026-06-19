@@ -239,7 +239,7 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
 
         {/* Done section */}
         {done.length > 0 && (
-          <>
+          <View style={s.doneSection}>
             <View style={s.doneHeader}>
               <Text style={s.kicker}>DONE · {done.length}</Text>
               <View style={[s.hairline, { backgroundColor: theme.hairline }]} />
@@ -263,7 +263,7 @@ export function TodayScreen({ onOpenTask, onOpenPets, onOpenSettings }) {
                 <Text style={s.loadMoreText}>Show older completed tasks ({done.length - doneLimit} remaining)</Text>
               </Pressable>
             )}
-          </>
+          </View>
         )}
 
         <View style={{ height: 100 }} />
@@ -292,7 +292,7 @@ function makeStyles(t) {
       borderWidth: 2,
       borderColor: t.surface2,
       backgroundColor: t.surface,
-      marginTop: 16,
+      marginTop: 26,
       marginBottom: 20,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 6 },
@@ -335,6 +335,9 @@ function makeStyles(t) {
     nextHeader: {
       marginTop: 24,
       marginBottom: 14,
+    },
+    doneSection: {
+      marginBottom: 28,
     },
     doneHeader: {
       marginTop: 28,

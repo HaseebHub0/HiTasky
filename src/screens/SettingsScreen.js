@@ -160,10 +160,16 @@ export function SettingsScreen({ onToast, onTriggerPaywall, onBack, onOpenPets, 
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 38, paddingBottom: 6 }}>
               <Pressable
-                onPress={() => { selectionFeedback(s); set('fontStyle', 'editorial'); }}
-                style={[st.sortChip, (s.fontStyle === 'editorial' || !s.fontStyle) && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+                onPress={() => { selectionFeedback(s); set('fontStyle', 'poppins'); }}
+                style={[st.sortChip, (s.fontStyle === 'poppins' || !s.fontStyle) && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
               >
-                <Text style={[st.sortChipText, { color: (s.fontStyle === 'editorial' || !s.fontStyle) ? theme.accent : theme.text2 }]}>Editorial</Text>
+                <Text style={[st.sortChipText, { color: (s.fontStyle === 'poppins' || !s.fontStyle) ? theme.accent : theme.text2 }]}>Poppins</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => { selectionFeedback(s); set('fontStyle', 'editorial'); }}
+                style={[st.sortChip, s.fontStyle === 'editorial' && { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
+              >
+                <Text style={[st.sortChipText, { color: s.fontStyle === 'editorial' ? theme.accent : theme.text2 }]}>Editorial</Text>
               </Pressable>
               <Pressable
                 onPress={() => { selectionFeedback(s); set('fontStyle', 'elegant'); }}
@@ -340,6 +346,7 @@ export function SettingsScreen({ onToast, onTriggerPaywall, onBack, onOpenPets, 
               theme={theme}
             />
           </View>
+
 
           <View style={[st.divider, { backgroundColor: theme.hairline }]} />
 

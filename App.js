@@ -34,6 +34,16 @@ import { Mali_400Regular, Mali_500Medium, Mali_600SemiBold, Mali_700Bold, Mali_4
 import { Inter_300Light, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { PlayfairDisplay_400Regular, PlayfairDisplay_500Medium, PlayfairDisplay_400Regular_Italic } from '@expo-google-fonts/playfair-display';
 import { SpaceMono_400Regular, SpaceMono_700Bold, SpaceMono_400Regular_Italic } from '@expo-google-fonts/space-mono';
+import {
+  Poppins_300Light,
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+  Poppins_300Light_Italic,
+  Poppins_400Regular_Italic,
+  Poppins_500Medium_Italic,
+} from '@expo-google-fonts/poppins';
 
 import * as Updates from 'expo-updates';
 import { StoreProvider, useStore } from './src/lib/store.js';
@@ -48,6 +58,7 @@ import { checkIntegrity, isProductionBuild } from './src/lib/security.js';
 import { AdBanner, recordCompletionForAd, showInterstitial, markAdShown } from './src/lib/adManager.js';
 import { emitPetReaction, getPet } from './src/lib/pets.js';
 import { recordCompletion } from './src/lib/greeting.js';
+import { registerNotificationCategories, registerNotificationResponseListener } from './src/lib/notifications.js';
 
 import { BottomNav } from './src/components/BottomNav.js';
 import { Fab, Toast, PaywallDialog, RatingDialog, TrialBanner } from './src/components/ui.js';
@@ -80,6 +91,7 @@ function AppShell() {
   // Initialize crash reporting + billing on mount (non-blocking)
   useEffect(() => {
     initCrashReporting();
+    registerNotificationCategories();
     // FREE-LAUNCH GUARD: while the app is free-for-all we do NOT open a Play
     // Billing connection at startup (no initConnection, no purchase listeners).
     // Billing code stays intact — it simply never executes. When monetization
@@ -198,6 +210,13 @@ function AppShell() {
     }
     prevCompletedRef.current = completedCount;
   }, [completedCount]);
+
+
+  // Register notification response actions listener
+  useEffect(() => {
+    const cleanup = registerNotificationResponseListener(actions, showToast);
+    return () => cleanup();
+  }, [actions, showToast]);
 
   // FOMO paywall: once the 7-day trial has lapsed (and the user hasn't
   // bought Pro), surface the full-screen paywall on launch. Inline gates
@@ -753,6 +772,14 @@ export default function App() {
     SpaceMono_400Regular,
     SpaceMono_700Bold,
     SpaceMono_400Regular_Italic,
+    Poppins_300Light,
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+    Poppins_300Light_Italic,
+    Poppins_400Regular_Italic,
+    Poppins_500Medium_Italic,
   });
 
   if (!fontsLoaded) return null;

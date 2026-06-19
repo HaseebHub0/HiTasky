@@ -43,6 +43,7 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
   const [note, setNote] = useState('');
   const [listId, setListId] = useState(null);
   const [dueAt, setDueAt] = useState(null);
+  const [isDateAutoParsed, setIsDateAutoParsed] = useState(false);
   const [startAt, setStartAt] = useState(null);
   const [reminderAt, setReminderAt] = useState(null);
   const [recurring, setRecurring] = useState(null);
@@ -105,12 +106,30 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
 
   const submit = () => {
     if (!title.trim()) return;
+    
+    let finalTitle = title;
+    try {
+      const results = chrono.parse(title, new Date(), { forwardDate: true });
+      if (results.length > 0) {
+        const matchText = results[0].text;
+        const escaped = matchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b(at|on|in|by|for|this|next)?\\s*${escaped}\\b`, 'gi');
+        finalTitle = title.replace(regex, '').replace(/\s+/g, ' ').trim();
+        if (!finalTitle) {
+          finalTitle = title;
+        }
+      }
+    } catch (e) {
+      console.warn('[NLP Cleaning] Failed:', e);
+    }
+
     softFeedback(settings);
-    onSave({ title: title.trim(), note: note.trim(), listId, dueAt, startAt, reminderAt, recurring, priority, subtasks });
+    onSave({ title: finalTitle.trim(), note: note.trim(), listId, dueAt, startAt, reminderAt, recurring, priority, subtasks });
   };
 
   // write a chosen ISO into whichever field the picker was opened for
   const writeField = (iso) => {
+    setIsDateAutoParsed(false);
     if (pickerTarget === 'reminder') {
       setReminderAt(iso);
     } else {
@@ -135,6 +154,7 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
     softFeedback(settings);
     const now = new Date();
     setStartAt(null);
+    setIsDateAutoParsed(false);
     if (type === 'today') {
       const iso = startOfDay(now).toISOString();
       setDueAt(iso);
@@ -164,6 +184,7 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
   // Reminder time: anchored to the due date if set, else today.
   const setReminderQuick = (hour) => {
     softFeedback(settings);
+    setIsDateAutoParsed(false);
     const base = dueAt ? new Date(dueAt) : new Date();
     base.setHours(hour, 0, 0, 0);
     setReminderAt(base.toISOString());
@@ -303,6 +324,11 @@ export function AddSheet({ open, mode = 'add', task, onSave, onDelete, onClose, 
                     if (results[0].start.isCertain('hour')) {
                       setReminderAt(parsedDate.toISOString());
                     }
+                    setIsDateAutoParsed(true);
+                  } else if (isDateAutoParsed) {
+                    setDueAt(null);
+                    setReminderAt(null);
+                    setIsDateAutoParsed(false);
                   }
                 }}
                 returnKeyType="done"

@@ -42,7 +42,7 @@ function Tab({ tab, on, theme, settings, onPress }) {
       <Animated.View style={{ alignItems: 'center', transform: [{ translateY: lift }, { scale: iconScale }] }}>
         <tab.icon size={22} color={color} />
       </Animated.View>
-      <Text style={[styles.lbl, { color }]}>{tab.label}</Text>
+      <Text style={[styles.lbl, { color, fontFamily: FONT.sansSemi }]}>{tab.label}</Text>
       <Animated.View
         style={[styles.dot, { backgroundColor: theme.accent, opacity: a, transform: [{ scale: dotScale }] }]}
       />
@@ -98,6 +98,6 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   tab: { flex: 1, alignItems: 'center', gap: 4, paddingTop: 4, paddingBottom: 4 },
-  lbl: { fontSize: 10.5, fontFamily: FONT.sansSemi, letterSpacing: 0.4 },
+  lbl: { fontSize: 10.5, letterSpacing: 0.4 },
   dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
 });
